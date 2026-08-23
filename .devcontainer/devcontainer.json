@@ -1,0 +1,14 @@
+{
+    "name": "margen",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "files.eol": "\n"
+            }
+        }
+    },
+    "postCreateCommand": "cmake -S . -B build -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Debug"
+}
