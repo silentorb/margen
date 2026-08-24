@@ -3,13 +3,12 @@
 #include <cstdint>
 #include <unordered_map>
 
+#include <margen/Core/SectorId.h>
 #include <margen/Graphing/Dependency/DagNodeId.h>
 #include <mythic/Math/Vector3.h>
 #include <mythic/Mythic/Containers.h>
 
 namespace margen {
-
-using SectorId = std::int16_t;
 
 using SimpleDagConnections = mythic::InlineVector<DagNodeId, 16>;
 

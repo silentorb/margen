@@ -15,6 +15,7 @@ list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
 add_executable(mythic_tests
 	mythic/DiceTest.cpp
 	mythic/ContainersTest.cpp
+	mythic/Vector3Test.cpp
 )
 
 target_link_libraries(mythic_tests
@@ -24,9 +25,12 @@ target_link_libraries(mythic_tests
 )
 
 add_executable(margen_tests
+	margen/Core/DirectionsTest.cpp
 	margen/Story/GenerateStoryTest.cpp
 	margen/Story/LocationBranchingTest.cpp
 	margen/Dependency/QueryingTest.cpp
+	margen/Graphing/Dependency/SectorsToDagTest.cpp
+	margen/Structure/StoryToClustersTest.cpp
 )
 
 target_link_libraries(margen_tests

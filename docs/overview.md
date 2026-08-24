@@ -48,12 +48,24 @@ Ports from Unreal should stay as close to a copy as practical:
 
 | Stage | Unreal modules | Status |
 |-------|----------------|--------|
-| 0 | MythicSimulation subset + GenerationGraphing (DAG/story) | Current |
-| 1 | Generation types + remaining Graphing | Later |
-| 1–2 | GenerationStructure | Later |
+| 0 | MythicSimulation subset + GenerationGraphing (DAG/story, `SectorsToDag`) | **Done** |
+| 1 | Generation core types + story → `CellGrid` | **In progress** (core types, `storyToClusters`, `generateStoryGrid` ported) |
+| 1–2 | GenerationStructure (rasterization, winding path, …) | Later |
 | 2 | GenerationGraphingAnalysis + Population (math) | Later |
 | 3+ | Surfacing face IR, Integration facade | Later |
 | — | Modeling / Editing / SimulationGeneration game glue | Rewrite, defer, or marloth-side |
+
+Story graph pipeline detail: [story-graph.md](story-graph.md).
+
+## Build
+
+Requires CMake ≥ 3.21, Ninja, and a C++20 compiler.
+
+```bash
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
 
 ## Engine boundary
 

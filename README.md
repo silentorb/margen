@@ -14,7 +14,7 @@ Godot integration lives in the sibling **margen-godot** repository (GDExtension)
 Requires CMake ≥ 3.21 and a C++20 compiler.
 
 ```bash
-cmake -S . -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```

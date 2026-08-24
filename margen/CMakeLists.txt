@@ -1,8 +1,13 @@
 add_library(margen ${MARGEN_LIBRARY_TYPE}
+	Core/Directions.cpp
 	Dependency/Querying.cpp
+	Graphing/Dependency/SectorsToDag.cpp
+	Graphing/Dependency/SimpleDependencyGraph.cpp
 	Story/GenerateStory.cpp
 	Story/LocationBranching.cpp
-	Graphing/Dependency/SimpleDependencyGraph.cpp
+	Structure/Story/GenerateStoryGrid.cpp
+	Structure/Story/StoryToClusters.cpp
+	Structure/WindingPath/GridPopulation.cpp
 )
 
 add_library(margen::margen ALIAS margen)
