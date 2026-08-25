@@ -7,8 +7,11 @@
         "vscode": {
             "settings": {
                 "files.eol": "\n"
-            }
+            },
+            "extensions": [
+                "rust-lang.rust-analyzer"
+            ]
         }
     },
-    "postCreateCommand": "cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug"
+    "postCreateCommand": "cargo test"
 }

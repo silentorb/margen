@@ -6,25 +6,25 @@ Technical reference for the **story graph** path in world generation: an abstrac
 
 ```mermaid
 flowchart LR
-  GS[generateStoryGraph]
-  LB[storyToLocationBranching]
-  SC[storyToClusters]
-  RG[rasterizeClusterGrid - later]
+  GS[generate_story_graph]
+  LB[story_to_location_branching]
+  SC[story_to_clusters]
+  RG[rasterize_cluster_grid - later]
   GS --> LB --> SC --> RG
 ```
 
 | Stage | Role |
 |-------|------|
-| `generateStoryGraph` | Builds a linear chain of nodes with `direct` (first link) and `unlocks` (later links) connection attributes. |
-| `storyToLocationBranching` | Rewires the chain into a branching DAG so keys are not adjacent to gates; forces backtracking in traversal order. |
-| `storyToClusters` | Places one grid cell per node and connects paths between spatial neighbors (or records portal pairs when space is exhausted). |
-| `rasterizeClusterGrid` | Expands sparse cluster cells into room-sized hex footprints (**not yet ported**). |
+| `generate_story_graph` | Builds a linear chain of nodes with `direct` (first link) and `unlocks` (later links) connection attributes. |
+| `story_to_location_branching` | Rewires the chain into a branching DAG so keys are not adjacent to gates; forces backtracking in traversal order. |
+| `story_to_clusters` | Places one grid cell per node and connects paths between spatial neighbors (or records portal pairs when space is exhausted). |
+| `rasterize_cluster_grid` | Expands sparse cluster cells into room-sized hex footprints (**not yet ported**). |
 
-Public composition API in margen: `generateStoryGrid` (`margen/Structure/Story/GenerateStoryGrid.h`).
+Public composition API in margen: `generate_story_grid` (`crates/margen/src/structure/story/generate_story_grid.rs`). C ABI: `margen_generate_story_grid` in [`include/margen.h`](../include/margen.h).
 
 ## Connection attributes
 
-Defined in `margen/Story/Types.h` (`StoryConnectionAttribute`):
+Defined in `crates/margen/src/story/types.rs` (`story_connection_attribute`):
 
 - **`direct`** — nodes are spatial neighbors with no gating between them.
 - **`unlocks`** — the source node holds the means to open progress toward the target (switch/key semantics downstream).
@@ -44,17 +44,19 @@ The default production path remains **prefab start + `windingPath`**, then analy
 
 | Piece | Status |
 |-------|--------|
-| `generateStoryGraph`, `storyToLocationBranching`, dependency querying | Ported (Stage 0) |
-| `Core/` types (`WorldCell`, `CellGrid`, `Directions`, `Sector`, …) | Ported (Stage 1) |
-| `sectorsToDag` | Ported |
-| `storyToClusters`, `connectCellsWithPath` subset | Ported |
-| `generateStoryGrid` | Ported |
-| `rasterizeClusterGrid`, cluster connection, biomes | Not yet ported |
+| `generate_story_graph`, `story_to_location_branching`, dependency querying | Ported (Rust Stage 0) |
+| Core types (`WorldCell`, `CellGrid`, directions, `Sector`, …) | Ported (Rust Stage 1) |
+| `sectors_to_dag` | Ported |
+| `story_to_clusters`, `connect_cells_with_path` subset | Ported |
+| `generate_story_grid` + C ABI | Ported |
+| `rasterize_cluster_grid`, cluster connection, biomes | Not yet ported |
+
+C++ reference implementation: git branch **`archive/cpp-port`**.
 
 ## Future extension points (design only)
 
 - **Node / edge metadata** for authored beats (dialogue hooks, objectives, spawn tables) without changing the DAG shape.
-- **Alternate `generateStoryGraph` inputs** beyond linear node count (branching story specs, authored graphs).
+- **Alternate `generate_story_graph` inputs** beyond linear node count (branching story specs, authored graphs).
 - **Integrator binding** in marloth: map `SectorLocationMap` and switch entries to Godot scenes and gameplay events.
 
 Algorithms stay in **margen**; Godot presentation and narrative scripting stay in **marloth**.

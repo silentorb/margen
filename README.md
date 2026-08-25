@@ -1,31 +1,34 @@
 # margen
 
-Engine-agnostic C++ library for generating congruent, maze-like game worlds.
+Engine-agnostic **Rust** library for generating congruent, maze-like game worlds, exposed to engines through a **C ABI**.
 
-This repository contains two layers:
+This repository contains:
 
-- **mythic** — general-purpose utilities (`mythic::`), not world generation
-- **margen** — world generation (`margen::`), depends on mythic
+- **mythic** — general-purpose utilities (`crates/mythic`)
+- **margen** — world generation (`crates/margen`), depends on mythic
+- **margen-ffi** — C ABI (`crates/margen-ffi`, header [`include/margen.h`](include/margen.h))
 
-Godot integration lives in the sibling **margen-godot** repository (GDExtension).
+Godot integration lives in the sibling **margen-godot** repository (GDExtension linking this ABI).
 
 ## Build
 
-Requires CMake ≥ 3.21 and a C++20 compiler.
+Requires a Rust toolchain.
 
 ```bash
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-cmake --build build
-ctest --test-dir build --output-on-failure
+cargo test
+cargo build -p margen-ffi --release
 ```
 
 ## Layout
 
 | Path | Purpose |
 |------|---------|
-| `mythic/` | Mythic headers and sources together |
-| `margen/` | Margen headers and sources together |
-| `tests/` | Catch2 unit tests |
+| `crates/mythic/` | Mythic utilities |
+| `crates/margen/` | World generation |
+| `crates/margen-ffi/` | C ABI |
+| `include/margen.h` | C header for hosts |
 | `docs/` | Design and port notes |
 
 See [AGENTS.md](AGENTS.md) for agent conventions and [docs/overview.md](docs/overview.md) for world-gen goals.
+
+Historical C++ sources: branch `archive/cpp-port`.

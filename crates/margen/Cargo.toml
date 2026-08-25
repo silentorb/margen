@@ -1,0 +1,9 @@
+[package]
+name = "margen"
+version = "0.1.0"
+edition = "2021"
+description = "Engine-agnostic maze-like world generation"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+mythic = { path = "../mythic" }

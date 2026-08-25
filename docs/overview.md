@@ -17,39 +17,30 @@ Margen generates congruent, maze-like game worlds from atomic parts with organic
 
 | Layer | Purpose |
 |-------|---------|
-| **mythic** | General utilities (`Dice`, `Vector3i`, `InlineVector`, …). See [mythic.md](mythic.md). |
+| **mythic** | General utilities (`Dice`, `Vector3i`, …). See [mythic.md](mythic.md). |
 | **margen** | World generation (graphing → structure → analysis → population → surfacing → integration). |
+| **margen-ffi** | C ABI (`include/margen.h`) for engine hosts (margen-godot, future C# P/Invoke). |
 
-## Near-copy port policy
+## Stack
 
-Ports from Unreal should stay as close to a copy as practical:
+- **Implementation language:** Rust (Cargo workspace under `crates/`).
+- **Engine boundary:** Generation outputs datasets; integrators convert later.
+- **Hosts:** margen-godot (C++ GDExtension) and Marloth game glue (C#) call the **C ABI**, not Rust internals.
 
-- Same relative folders and PascalCase filenames under repo-root `margen/` and `mythic/` (headers colocated with `.cpp`; **no** separate `include/` tree)
-- Same identifier spelling (lowerCamelCase APIs)
-- Same comments and which APIs live in headers vs translation units
-- Wrap symbols once in `margen::` or `mythic::` for packaging (no extra nested namespaces)
+## Port policy
 
-**Layout note:** Colocate `.h` and `.cpp` to mitigate C++’s legacy header/source split rather than accentuating it (see [AGENTS.md](../AGENTS.md)).
-
-**Allowed substitutions:** `TArray`/`TMap`/`TSet`/`TPair` → `InlineVector`/`FixedArray`/`std::unordered_map`/`std::unordered_set`/`std::pair`; strip UHT/`*_API`; `FDice`/`FRandomStream` → `mythic::Dice`/`std::mt19937`; UE integer typedefs → `std::int*_t`.
+Ports from Unreal should preserve **behavior and pipeline shape**, expressed as idiomatic Rust with **flat FP steps**. See [rust-style.md](rust-style.md).
 
 **Logic:** default = Unreal behavior. Intentional fixes use documented [improvement classes](../AGENTS.md#logic-improvement-classes). New classes need user approval once, then get listed in agent docs.
 
-## Containers
-
-| Unreal | Port |
-|--------|------|
-| `TArray<T, TInlineAllocator<N>>` | `mythic::InlineVector<T, N>` |
-| `TArray<T, TFixedAllocator<N>>` | `mythic::FixedArray<T, N>` |
-| `TSet` with inline set allocator | Inline/fixed array + uniqueness helpers |
-| plain `TArray` / `TMap` / `TSet` | `std::vector` / `std::unordered_map` / `std::unordered_set` |
+Historical C++ near-copy policy and sources: branch **`archive/cpp-port`**.
 
 ## Port roadmap (from Unreal)
 
 | Stage | Unreal modules | Status |
 |-------|----------------|--------|
-| 0 | MythicSimulation subset + GenerationGraphing (DAG/story, `SectorsToDag`) | **Done** |
-| 1 | Generation core types + story → `CellGrid` | **In progress** (core types, `storyToClusters`, `generateStoryGrid` ported) |
+| 0 | MythicSimulation subset + GenerationGraphing (DAG/story, `sectors_to_dag`) | **Done** (Rust) |
+| 1 | Generation core types + story → `CellGrid` | **Done** (Rust: `story_to_clusters`, `generate_story_grid` + C ABI) |
 | 1–2 | GenerationStructure (rasterization, winding path, …) | Later |
 | 2 | GenerationGraphingAnalysis + Population (math) | Later |
 | 3+ | Surfacing face IR, Integration facade | Later |
@@ -59,14 +50,13 @@ Story graph pipeline detail: [story-graph.md](story-graph.md).
 
 ## Build
 
-Requires CMake ≥ 3.21, Ninja, and a C++20 compiler.
+Requires a Rust toolchain (1.88+ recommended).
 
 ```bash
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-cmake --build build
-ctest --test-dir build --output-on-failure
+cargo test
+cargo build -p margen-ffi --release
 ```
 
 ## Engine boundary
 
-Margen stays engine-agnostic. Integrators (e.g. margen-godot) convert final datasets into engine meshes, materials, and actors.
+Margen stays engine-agnostic. Integrators (e.g. margen-godot) convert final datasets into engine meshes, materials, and actors via the C ABI.

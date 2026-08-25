@@ -1,6 +1,4 @@
-/build/
-/build-ninja/
-/cmake-build-*/
+/target/
 /.cache/
 /out/
 *.o
@@ -8,8 +6,6 @@
 *.so
 *.dylib
 *.dll
-compile_commands.json
 .vscode/
 .idea/
 *.user
-CMakeUserPresets.json
