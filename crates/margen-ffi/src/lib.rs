@@ -1,11 +1,14 @@
 //! C ABI for margen world generation.
 
-use margen::{generate_story_grid, DagNodeId, StoryGridResult};
+use margen::{
+	biome_from_id, generate_story_grid_with_config, DagNodeId, StoryGridConfig, StoryGridResult,
+};
 use mythic::{Dice, Vector3i};
 use std::cell::RefCell;
 use std::ffi::{c_char, CString};
 use std::os::raw::c_int;
 use std::ptr;
+use std::slice;
 
 thread_local! {
 	static LAST_ERROR: RefCell<Option<CString>> = const { RefCell::new(None) };
@@ -73,6 +76,22 @@ pub const MARGEN_OK: MargenStatus = 0;
 pub const MARGEN_ERR_INVALID_ARGUMENT: MargenStatus = 1;
 pub const MARGEN_ERR_GENERATION_FAILED: MargenStatus = 2;
 
+fn biomes_from_ids(biome_count: i32, biome_ids: *const u32) -> Result<StoryGridConfig, &'static str> {
+	let mut config = StoryGridConfig::default();
+	if biome_count < 0 {
+		return Err("biome_count must be non-negative");
+	}
+	if biome_count == 0 {
+		return Ok(config);
+	}
+	if biome_ids.is_null() {
+		return Err("biome_ids is null while biome_count > 0");
+	}
+	let ids = unsafe { slice::from_raw_parts(biome_ids, biome_count as usize) };
+	config.biomes = ids.iter().copied().map(biome_from_id).collect();
+	Ok(config)
+}
+
 #[no_mangle]
 pub extern "C" fn margen_version() -> *const c_char {
 	static VERSION: &[u8] = b"0.1.0\0";
@@ -88,6 +107,8 @@ pub extern "C" fn margen_last_error() -> *const c_char {
 }
 
 /// Generate a story grid. On success writes a non-null handle and returns `MARGEN_OK`.
+///
+/// Pass `biome_count == 0` and a null `biome_ids` for the default single biome.
 #[no_mangle]
 pub unsafe extern "C" fn margen_generate_story_grid(
 	seed: i32,
@@ -95,6 +116,8 @@ pub unsafe extern "C" fn margen_generate_story_grid(
 	origin_x: i32,
 	origin_y: i32,
 	origin_z: i32,
+	biome_count: i32,
+	biome_ids: *const u32,
 	out_handle: *mut *mut MargenStoryGrid,
 ) -> MargenStatus {
 	clear_last_error();
@@ -108,9 +131,18 @@ pub unsafe extern "C" fn margen_generate_story_grid(
 		return MARGEN_ERR_INVALID_ARGUMENT;
 	}
 
+	let config = match biomes_from_ids(biome_count, biome_ids) {
+		Ok(config) => config,
+		Err(message) => {
+			set_last_error(message);
+			*out_handle = ptr::null_mut();
+			return MARGEN_ERR_INVALID_ARGUMENT;
+		}
+	};
+
 	let mut dice = Dice::new(seed);
 	let origin = Vector3i::new(origin_x, origin_y, origin_z);
-	let result = generate_story_grid(&mut dice, node_count, origin);
+	let result = generate_story_grid_with_config(&mut dice, node_count, origin, &config);
 	if !result.success {
 		set_last_error("story grid generation failed");
 		*out_handle = ptr::null_mut();
@@ -212,7 +244,7 @@ mod tests {
 	fn ffi_story_grid_smoke() {
 		unsafe {
 			let mut handle: *mut MargenStoryGrid = ptr::null_mut();
-			let status = margen_generate_story_grid(1, 5, 0, 0, 0, &mut handle);
+			let status = margen_generate_story_grid(1, 5, 0, 0, 0, 0, ptr::null(), &mut handle);
 			assert_eq!(status, MARGEN_OK);
 			assert!(!handle.is_null());
 			assert_eq!(margen_story_grid_success(handle), 1);
@@ -231,6 +263,37 @@ mod tests {
 			};
 			assert_eq!(margen_story_grid_get_cell(handle, 0, &mut cell), MARGEN_OK);
 
+			margen_story_grid_free(handle);
+		}
+	}
+
+	#[test]
+	fn ffi_multi_biome_smoke() {
+		unsafe {
+			let ids = [1u32, 2, 3];
+			let mut handle: *mut MargenStoryGrid = ptr::null_mut();
+			let status =
+				margen_generate_story_grid(42, 8, 0, 0, 0, ids.len() as i32, ids.as_ptr(), &mut handle);
+			assert_eq!(status, MARGEN_OK);
+			assert!(!handle.is_null());
+			let count = margen_story_grid_cell_count(handle);
+			assert!(count > 0);
+			let mut seen = std::collections::BTreeSet::new();
+			let mut cell = MargenCell {
+				x: 0,
+				y: 0,
+				z: 0,
+				attributes: 0,
+				paths: 0,
+				biome_id: 0,
+				sector: 0,
+				_pad: 0,
+			};
+			for i in 0..count {
+				assert_eq!(margen_story_grid_get_cell(handle, i, &mut cell), MARGEN_OK);
+				seen.insert(cell.biome_id);
+			}
+			assert!(seen.len() > 1, "expected multiple biome ids, got {seen:?}");
 			margen_story_grid_free(handle);
 		}
 	}

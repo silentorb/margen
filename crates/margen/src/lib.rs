@@ -3,11 +3,15 @@
 pub mod biomes;
 pub mod core;
 pub mod dependency;
+pub mod distribution;
 pub mod graphing;
 pub mod story;
 pub mod structure;
 
-pub use biomes::{default_biome, Biome, BIOME_TAG_FLAT};
+pub use biomes::{
+	biome_from_id, default_biome, Biome, BiomeDistribution, BiomeNodeId, BiomeQueryResult,
+	BIOME_TAG_FLAT,
+};
 pub use core::{
 	cell_attribute, sector_attribute, CellAttributes, CellGrid, CellPaths, DirectionIndex, Sector,
 	SectorAttributes, SectorData, SectorId, WorldCell, ALL_DIRECTIONS_COUNT, FLAT_DIRECTION_COUNT,

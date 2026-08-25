@@ -61,7 +61,7 @@ pub fn connect_cluster_cells(
 	dice: &mut Dice,
 	connections: &DagConnectionMap,
 	sector_location_map: &SectorLocationMap,
-	get_biome: &dyn Fn(Vector3i) -> Arc<Biome>,
+	get_biome: &mut dyn FnMut(Vector3i) -> Arc<Biome>,
 	radius: i32,
 	block: &Block,
 	grid: &mut CellGrid,

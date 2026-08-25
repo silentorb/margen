@@ -50,7 +50,7 @@ pub fn rasterize_cluster(
 }
 
 pub fn rasterize_cluster_grid(
-	get_biome: &dyn Fn(Vector3i) -> Arc<Biome>,
+	get_biome: &mut dyn FnMut(Vector3i) -> Arc<Biome>,
 	input: &CellGrid,
 	config: &ClusterRasterizationConfig,
 	block: &Block,

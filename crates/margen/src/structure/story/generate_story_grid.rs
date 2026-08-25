@@ -1,4 +1,4 @@
-use crate::biomes::{constant_get_biome, default_biome, Biome};
+use crate::biomes::{constant_get_biome, default_biome, Biome, BiomeDistribution};
 use crate::core::world_cell::CellGrid;
 use crate::dependency::{DagConnectionId, DagGraph, DagNodeId};
 use crate::story::{generate_story_graph, story_to_location_branching};
@@ -16,7 +16,8 @@ pub struct StoryGridConfig {
 	pub headroom: i32,
 	pub raster: ClusterRasterizationConfig,
 	pub connect_clusters: bool,
-	pub biome: Arc<Biome>,
+	/// Biome pool for spatial sampling. Empty or single entry uses a constant biome.
+	pub biomes: Vec<Arc<Biome>>,
 }
 
 impl Default for StoryGridConfig {
@@ -29,7 +30,7 @@ impl Default for StoryGridConfig {
 				headroom: 3,
 			},
 			connect_clusters: false,
-			biome: default_biome(),
+			biomes: vec![default_biome()],
 		}
 	}
 }
@@ -82,19 +83,42 @@ pub fn generate_story_grid_with_config(
 	let mut raster_config = config.raster;
 	raster_config.headroom = config.headroom;
 	let block = winding_path_block_default(config.headroom);
-	let get_biome = constant_get_biome(Arc::clone(&config.biome));
-	result.grid = rasterize_cluster_grid(&get_biome, &result.grid, &raster_config, &block);
 
-	if config.connect_clusters {
-		connect_cluster_cells(
-			dice,
-			&result.graph.connections,
-			&result.sector_location_map,
-			&get_biome,
-			raster_config.radius,
-			&block,
-			&mut result.grid,
-		);
+	if config.biomes.len() <= 1 {
+		let biome = config
+			.biomes
+			.first()
+			.cloned()
+			.unwrap_or_else(default_biome);
+		let mut get_biome = constant_get_biome(biome);
+		result.grid = rasterize_cluster_grid(&mut get_biome, &result.grid, &raster_config, &block);
+		if config.connect_clusters {
+			connect_cluster_cells(
+				dice,
+				&result.graph.connections,
+				&result.sector_location_map,
+				&mut get_biome,
+				raster_config.radius,
+				&block,
+				&mut result.grid,
+			);
+		}
+	} else {
+		let mut distribution =
+			BiomeDistribution::new(dice.clone(), config.biomes.clone());
+		let mut get_biome = |loc: Vector3i| distribution.get_biome(loc);
+		result.grid = rasterize_cluster_grid(&mut get_biome, &result.grid, &raster_config, &block);
+		if config.connect_clusters {
+			connect_cluster_cells(
+				dice,
+				&result.graph.connections,
+				&result.sector_location_map,
+				&mut get_biome,
+				raster_config.radius,
+				&block,
+				&mut result.grid,
+			);
+		}
 	}
 
 	result
@@ -127,12 +151,13 @@ pub fn cells_per_winding_block(headroom: i32) -> usize {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::biomes::{constant_get_biome, default_biome};
+	use crate::biomes::{biome_from_id, constant_get_biome, default_biome};
 	use crate::core::world_cell::{cell_attribute, CellGrid, WorldCell};
 	use crate::structure::clusters::{
 		rasterize_cluster_grid, scale_cell_location, ClusterRasterizationConfig,
 	};
 	use crate::structure::winding_path::winding_path_block_default;
+	use std::collections::BTreeSet;
 
 	#[test]
 	fn story_grid_expands_after_rasterize() {
@@ -168,10 +193,13 @@ mod tests {
 	#[test]
 	fn rasterize_single_cell_footprint() {
 		let mut input = CellGrid::new();
-		input.insert(Vector3i::zero(), WorldCell {
-			sector: 1,
-			..Default::default()
-		});
+		input.insert(
+			Vector3i::zero(),
+			WorldCell {
+				sector: 1,
+				..Default::default()
+			},
+		);
 		let config = ClusterRasterizationConfig {
 			radius: 3,
 			margin: 1,
@@ -179,8 +207,8 @@ mod tests {
 		};
 		let block = winding_path_block_default(3);
 		let biome = default_biome();
-		let get_biome = constant_get_biome(biome);
-		let output = rasterize_cluster_grid(&get_biome, &input, &config, &block);
+		let mut get_biome = constant_get_biome(biome);
+		let output = rasterize_cluster_grid(&mut get_biome, &input, &config, &block);
 		assert_eq!(output.len(), 7 * 4);
 	}
 
@@ -189,7 +217,12 @@ mod tests {
 		let mut dice = Dice::new(1);
 		let mut config = StoryGridConfig::default();
 		config.connect_clusters = true;
-		let without = generate_story_grid_with_config(&mut Dice::new(1), 3, Vector3i::zero(), &StoryGridConfig::default());
+		let without = generate_story_grid_with_config(
+			&mut Dice::new(1),
+			3,
+			Vector3i::zero(),
+			&StoryGridConfig::default(),
+		);
 		let with = generate_story_grid_with_config(&mut dice, 3, Vector3i::zero(), &config);
 		assert!(with.success);
 		assert!(with.grid.len() >= without.grid.len());
@@ -200,6 +233,22 @@ mod tests {
 		assert_eq!(
 			scale_cell_location(Vector3i::new(1, 0, 0), 3.0),
 			Vector3i::new(5, -2, 0)
+		);
+	}
+
+	#[test]
+	fn multi_biome_story_grid_has_varied_biome_ids() {
+		let config = StoryGridConfig {
+			biomes: vec![biome_from_id(1), biome_from_id(2), biome_from_id(3)],
+			..Default::default()
+		};
+		let mut dice = Dice::new(42);
+		let result = generate_story_grid_with_config(&mut dice, 8, Vector3i::zero(), &config);
+		assert!(result.success);
+		let ids: BTreeSet<u32> = result.grid.iter().map(|(_, c)| c.biome_id()).collect();
+		assert!(
+			ids.len() > 1,
+			"expected multiple biome ids in story grid, got {ids:?}"
 		);
 	}
 }

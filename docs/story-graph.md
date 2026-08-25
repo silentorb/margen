@@ -14,6 +14,8 @@ flowchart LR
   GS --> LB --> SC --> RG --> CC
 ```
 
+Rasterize/connect sample biomes via constant `GetBiome` (single biome) or spatial `BiomeDistribution` (multi-biome pool).
+
 | Stage | Role |
 |-------|------|
 | `generate_story_graph` | Builds a linear chain of nodes with `direct` (first link) and `unlocks` (later links) connection attributes. |
@@ -22,9 +24,9 @@ flowchart LR
 | `rasterize_cluster_grid` | Expands sparse cluster cells into room-sized hex footprints (`Block` layers via `winding_path_block`). |
 | `connect_cluster_cells` | Optional corridors between scaled cluster centers (default off; matches Unreal `CONNECT_CLUSTERS`). |
 
-Public composition API in margen: `generate_story_grid` / `generate_story_grid_with_config` (`crates/margen/src/structure/story/generate_story_grid.rs`). C ABI: `margen_generate_story_grid` in [`include/margen.h`](../include/margen.h).
+Public composition API in margen: `generate_story_grid` / `generate_story_grid_with_config` (`crates/margen/src/structure/story/generate_story_grid.rs`). C ABI: `margen_generate_story_grid` in [`include/margen.h`](../include/margen.h) (optional `biome_count` / `biome_ids`; zero count uses the default single biome).
 
-Default story raster config: `radius=3`, `margin=1`, `headroom=3`, `connect_clusters=false`.
+Default story raster config: `radius=3`, `margin=1`, `headroom=3`, `connect_clusters=false`. Default biome pool is a single `default_biome()`; multiple entries enable spatial `BiomeDistribution`.
 
 ## Connection attributes
 
@@ -55,7 +57,7 @@ The default production path remains **prefab start + `windingPath`**, then analy
 | `generate_story_grid` + C ABI | Ported |
 | `Biome` / constant `GetBiome`, `Block` / `add_connected_block`, congruence | Ported |
 | `rasterize_cluster_grid`, optional `connect_cluster_cells` | Ported |
-| Spatial `BiomeDistribution` sampling | Not yet ported |
+| Spatial `BiomeDistribution` sampling | Ported (nested sub-biome sampling deferred; commented out in Unreal) |
 
 C++ reference implementation: git branch **`archive/cpp-port`**.
 

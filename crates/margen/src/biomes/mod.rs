@@ -1,3 +1,9 @@
+pub mod distribution;
+pub mod query;
+
+pub use distribution::{BiomeDistribution, BiomeDistributionConfig};
+pub use query::{BiomeNode, BiomeNodeId, BiomeQueryResult};
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
@@ -49,4 +55,16 @@ pub fn default_biome() -> Arc<Biome> {
 /// Constant biome getter used by story composition when no distribution is available.
 pub fn constant_get_biome(biome: Arc<Biome>) -> impl Fn(mythic::Vector3i) -> Arc<Biome> {
 	move |_| Arc::clone(&biome)
+}
+
+/// Build a biome from a numeric id (hosts / FFI). Ids 0..=2 get distinct debug colors.
+pub fn biome_from_id(id: u32) -> Arc<Biome> {
+	let mut biome = Biome::new(id);
+	biome.debug_color = match id {
+		0 => [128, 128, 128, 255],
+		1 => [80, 160, 80, 255],
+		2 => [80, 80, 180, 255],
+		_ => [id as u8, id as u8, id as u8, 255],
+	};
+	Arc::new(biome)
 }

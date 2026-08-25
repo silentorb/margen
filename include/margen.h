@@ -37,12 +37,15 @@ typedef struct MargenPortal {
 const char *margen_version(void);
 const char *margen_last_error(void);
 
+/* biome_ids may be NULL when biome_count is 0 (defaults to a single biome id 0). */
 MargenStatus margen_generate_story_grid(
 	int32_t seed,
 	int16_t node_count,
 	int32_t origin_x,
 	int32_t origin_y,
 	int32_t origin_z,
+	int32_t biome_count,
+	const uint32_t *biome_ids,
 	MargenStoryGrid **out_handle);
 
 void margen_story_grid_free(MargenStoryGrid *handle);
