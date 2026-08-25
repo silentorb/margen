@@ -42,11 +42,11 @@ Historical C++ near-copy policy and sources: branch **`archive/cpp-port`**.
 | 0 | MythicSimulation subset + GenerationGraphing (DAG/story, `sectors_to_dag`) | **Done** (Rust) |
 | 1 | Generation core types + story → `CellGrid` | **Done** (Rust: `story_to_clusters`, `generate_story_grid` + C ABI) |
 | 1–2 | GenerationStructure (rasterization, optional cluster connect, Block/congruence, Biome type, spatial `BiomeDistribution`) | **Done** (Rust: `rasterize_cluster_grid`, optional `connect_cluster_cells`, `BiomeDistribution`; nested sub-biomes deferred) |
-| 2 | GenerationGraphingAnalysis + Population (math) | Later |
+| 2 | GenerationGraphingAnalysis + Population (math) | **Done** (GraphingAnalysis: `partition_sectors`, `generate_goals`); Population **Later** |
 | 3+ | Surfacing face IR, Integration facade | Later |
 | — | Modeling / Editing / SimulationGeneration game glue | Rewrite, defer, or marloth-side |
 
-Story graph pipeline detail: [story-graph.md](story-graph.md).
+Story graph pipeline detail: [story-graph.md](story-graph.md). Sector analysis detail: [sector-analysis.md](sector-analysis.md).
 
 ## Engine-agnostic types
 

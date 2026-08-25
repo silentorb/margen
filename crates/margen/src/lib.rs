@@ -1,5 +1,6 @@
 //! Engine-agnostic maze-like world generation.
 
+pub mod analysis;
 pub mod biomes;
 pub mod core;
 pub mod dependency;
@@ -21,7 +22,15 @@ pub use dependency::{
 	get_node_ancestors, get_node_descendants, DagConnection, DagConnectionId, DagConnectionMap,
 	DagGraph, DagNodeId,
 };
-pub use graphing::{sectors_to_dag, SimpleDagGraph, SimpleDagNode};
+pub use analysis::{
+	partition_sectors, validate_sector_map, AnalysisInput, AnalysisResult, PartitionConfig,
+	PathDepths,
+};
+pub use core::LevelSwitchEntry;
+pub use graphing::{
+	create_gated_waypoints, generate_goals, sectors_to_dag, select_switch_cell_locations,
+	waypoints_to_switches, SimpleDagGraph, SimpleDagNode,
+};
 pub use story::{
 	generate_story_graph, story_connection_attribute, story_to_location_branching,
 	story_to_location_branching_default, StoryGraph,

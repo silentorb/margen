@@ -1,4 +1,5 @@
 pub mod clusters;
+pub mod querying;
 pub mod story;
 pub mod types;
 pub mod winding_path;
