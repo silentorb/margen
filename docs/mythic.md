@@ -19,6 +19,8 @@ Generation depended primarily on **MythicSimulation** (`Dice`, math, distributio
 
 - `mythic::Dice` — `crates/mythic/src/dice.rs` (seeded `StdRng`; not bit-identical to C++ `std::mt19937`)
 - `mythic::Vector3i` — `crates/mythic/src/vector3.rs`
+- `mythic::Vector2i` — `crates/mythic/src/vector2.rs`
+- `mythic::psuedorandom` — `crates/mythic/src/random.rs`
 
 Inline/fixed SmallVector containers from the C++ port are **not** reimplemented; callers use `Vec` / arrays unless size semantics prove load-bearing.
 

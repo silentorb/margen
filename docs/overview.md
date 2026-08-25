@@ -41,12 +41,18 @@ Historical C++ near-copy policy and sources: branch **`archive/cpp-port`**.
 |-------|----------------|--------|
 | 0 | MythicSimulation subset + GenerationGraphing (DAG/story, `sectors_to_dag`) | **Done** (Rust) |
 | 1 | Generation core types + story → `CellGrid` | **Done** (Rust: `story_to_clusters`, `generate_story_grid` + C ABI) |
-| 1–2 | GenerationStructure (rasterization, winding path, …) | Later |
+| 1–2 | GenerationStructure (rasterization, optional cluster connect, Block/congruence, Biome type) | **Done** (Rust: `rasterize_cluster_grid`, optional `connect_cluster_cells`; spatial biome distribution still later) |
 | 2 | GenerationGraphingAnalysis + Population (math) | Later |
 | 3+ | Surfacing face IR, Integration facade | Later |
 | — | Modeling / Editing / SimulationGeneration game glue | Rewrite, defer, or marloth-side |
 
 Story graph pipeline detail: [story-graph.md](story-graph.md).
+
+## Engine-agnostic types
+
+Unreal engine types (`UBiome`, `UDataAsset`, GameplayTags, material assets) are **not** referenced from margen. Generation-relevant fields live as plain Rust structs (`margen::Biome`, placeable ids, tag strings). Hosts translate adapter resources at the boundary.
+
+**Shared biome ownership:** many cells share one biome via `Arc<Biome>` on `WorldCell`. Numeric `Biome.id` maps to the C ABI `MargenCell.biome_id`.
 
 ## Build
 

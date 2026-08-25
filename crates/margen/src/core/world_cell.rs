@@ -1,8 +1,10 @@
+use crate::biomes::Biome;
 use crate::core::directions::DirectionIndex;
 use crate::core::pathing::CellPaths;
 use crate::core::sector::SectorId;
 use mythic::Vector3i;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 pub type CellAttributes = i64;
 
@@ -29,8 +31,14 @@ pub struct WorldCell {
 	pub step: u32,
 	pub attributes: CellAttributes,
 	pub paths: CellPaths,
-	pub biome_id: u32,
+	pub biome: Option<Arc<Biome>>,
 	pub sector: SectorId,
+}
+
+impl WorldCell {
+	pub fn biome_id(&self) -> u32 {
+		self.biome.as_ref().map(|b| b.id).unwrap_or(0)
+	}
 }
 
 pub fn cell_has_attribute(cell: &WorldCell, attribute: CellAttributes) -> bool {
@@ -100,6 +108,10 @@ impl CellGrid {
 
 	pub fn get_mut(&mut self, location: Vector3i) -> Option<&mut WorldCell> {
 		self.cells.get_mut(&location)
+	}
+
+	pub fn insert(&mut self, location: Vector3i, cell: WorldCell) {
+		self.cells.insert(location, cell);
 	}
 
 	pub fn entry_or_default(&mut self, location: Vector3i) -> &mut WorldCell {

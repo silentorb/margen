@@ -9,8 +9,9 @@ flowchart LR
   GS[generate_story_graph]
   LB[story_to_location_branching]
   SC[story_to_clusters]
-  RG[rasterize_cluster_grid - later]
-  GS --> LB --> SC --> RG
+  RG[rasterize_cluster_grid]
+  CC[connect_cluster_cells - optional]
+  GS --> LB --> SC --> RG --> CC
 ```
 
 | Stage | Role |
@@ -18,9 +19,12 @@ flowchart LR
 | `generate_story_graph` | Builds a linear chain of nodes with `direct` (first link) and `unlocks` (later links) connection attributes. |
 | `story_to_location_branching` | Rewires the chain into a branching DAG so keys are not adjacent to gates; forces backtracking in traversal order. |
 | `story_to_clusters` | Places one grid cell per node and connects paths between spatial neighbors (or records portal pairs when space is exhausted). |
-| `rasterize_cluster_grid` | Expands sparse cluster cells into room-sized hex footprints (**not yet ported**). |
+| `rasterize_cluster_grid` | Expands sparse cluster cells into room-sized hex footprints (`Block` layers via `winding_path_block`). |
+| `connect_cluster_cells` | Optional corridors between scaled cluster centers (default off; matches Unreal `CONNECT_CLUSTERS`). |
 
-Public composition API in margen: `generate_story_grid` (`crates/margen/src/structure/story/generate_story_grid.rs`). C ABI: `margen_generate_story_grid` in [`include/margen.h`](../include/margen.h).
+Public composition API in margen: `generate_story_grid` / `generate_story_grid_with_config` (`crates/margen/src/structure/story/generate_story_grid.rs`). C ABI: `margen_generate_story_grid` in [`include/margen.h`](../include/margen.h).
+
+Default story raster config: `radius=3`, `margin=1`, `headroom=3`, `connect_clusters=false`.
 
 ## Connection attributes
 
@@ -49,7 +53,9 @@ The default production path remains **prefab start + `windingPath`**, then analy
 | `sectors_to_dag` | Ported |
 | `story_to_clusters`, `connect_cells_with_path` subset | Ported |
 | `generate_story_grid` + C ABI | Ported |
-| `rasterize_cluster_grid`, cluster connection, biomes | Not yet ported |
+| `Biome` / constant `GetBiome`, `Block` / `add_connected_block`, congruence | Ported |
+| `rasterize_cluster_grid`, optional `connect_cluster_cells` | Ported |
+| Spatial `BiomeDistribution` sampling | Not yet ported |
 
 C++ reference implementation: git branch **`archive/cpp-port`**.
 
