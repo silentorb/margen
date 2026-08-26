@@ -2,7 +2,7 @@
 
 Technical reference for Unreal **GenerationSurfacing**’s engine-agnostic face pipeline, ported as `margen_generation_surfacing`.
 
-Stops at exportable **`RenderFace`** datasets. Mesh apply (`applySurfacing` / DynamicMesh), Integration facade, face C ABI, and Population stay out of this crate.
+Stops at exportable **`RenderFace`** datasets. Mesh apply (`applySurfacing` / DynamicMesh), Integration facade, and Population stay out of this crate. **Face / world-faces C ABI** is exported from `margen_ffi` (`margen_generate_world_faces`).
 
 ## Pipeline
 
@@ -47,7 +47,6 @@ Empty `SharedCellVertexOffsets` and `HexCellCornersMap` still produce valid pris
 |-------|-------|
 | `refineWorldGrid` | Surfacing inputs for organic corners |
 | Integration facade | `generate_sector_geometry` orchestration crate |
-| Face / winding C ABI | Host export |
 | Mesh apply / Modeling | Engine hosts (margen-godot, marloth) |
 | Population | Separate layer |
 

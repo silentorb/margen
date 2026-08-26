@@ -5,7 +5,8 @@ pub mod core;
 pub mod distribution;
 
 pub use biomes::{
-	biome_from_id, constant_get_biome, default_biome, Biome, BiomeDistribution, BiomeNodeId,
+	biome_from_id, constant_get_biome, default_biome, surface_default_biome, Biome, BiomeDistribution,
+	BiomeNodeId,
 	BiomeQueryResult, MaterialPlaceable, MaterialPlaceableId, BIOME_TAG_FLAT,
 };
 pub use core::*;

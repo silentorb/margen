@@ -84,6 +84,20 @@ pub fn default_biome() -> Arc<Biome> {
 	Arc::new(Biome::new(0))
 }
 
+/// Biome with wall/floor/ceiling material placeables for Surfacing smoke tests and FFI hosts.
+pub fn surface_default_biome() -> Arc<Biome> {
+	let mut wall = MaterialPlaceable::new(1);
+	wall.requirements.insert("Face.Wall".to_string());
+	let mut floor = MaterialPlaceable::new(2);
+	floor.requirements.insert("Face.Floor".to_string());
+	let mut ceiling = MaterialPlaceable::new(3);
+	ceiling.requirements.insert("Face.Ceiling".to_string());
+	let mut biome = Biome::new(0);
+	biome.materials = vec![wall, floor, ceiling];
+	biome.debug_color = [128, 128, 128, 255];
+	Arc::new(biome)
+}
+
 /// Constant biome getter used by story composition when no distribution is available.
 pub fn constant_get_biome(biome: Arc<Biome>) -> impl Fn(mythic_math::Vector3i) -> Arc<Biome> {
 	move |_| Arc::clone(&biome)

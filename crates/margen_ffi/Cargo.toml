@@ -11,6 +11,7 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 [dependencies]
 margen_generation = { path = "../margen_generation" }
 margen_generation_structure = { path = "../margen_generation_structure" }
+margen_generation_surfacing = { path = "../margen_generation_surfacing" }
 margen_generation_graphing = { path = "../margen_generation_graphing" }
 mythic_dice = { path = "../mythic_dice" }
 mythic_math = { path = "../mythic_math" }

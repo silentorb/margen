@@ -46,7 +46,7 @@ Unreal `gatherAvailableLocations` built the solving cell from **`origin`** while
 | Home/room prefabs | Beyond minimal one-block seed |
 | `GridRefinement` / `refineWorldGrid` | Organic Surfacing inputs (empty maps still yield prism faces) |
 | RoomDistribution shaping | Dormant in Unreal `getCellPriority` |
-| Population / face C ABI / Integration facade | Later stages |
+| Population / face C ABI / Integration facade | Later stages (face C ABI **done** via `margen_generate_world_faces`) |
 | Nested sub-biome sampling | Deferred with BiomeDistribution |
 
 ## Port status

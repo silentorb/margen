@@ -48,7 +48,7 @@ Historical C++ near-copy policy and sources: branch **`archive/cpp-port`**.
 | 1–2 | GenerationStructure (rasterization, optional cluster connect, Block/congruence, Biome type, spatial `BiomeDistribution`, prefab-seed `windingPath` / `generate_world_grid`) | **Done** (nested sub-biomes deferred; refinement later) |
 | 2 | GenerationGraphingAnalysis + Population (math) | **Done** (GraphingAnalysis crate); Population **Later** |
 | 3 | GenerationSurfacing face IR through `RenderFace` | **Done** (`margen_generation_surfacing`; empty corner maps = prism faces) |
-| 3+ | Integration facade, face/world-grid C ABI, `GridRefinement` | Later (each as its own crate / export when ported) |
+| 3+ | Integration facade, face/world-grid C ABI, `GridRefinement` | **Done** (world-faces C ABI); Integration facade + `GridRefinement` later |
 | — | Modeling / Editing / SimulationGeneration game glue | Rewrite, defer, or marloth-side |
 
 Story graph pipeline detail: [story-graph.md](story-graph.md). Sector analysis detail: [sector-analysis.md](sector-analysis.md). Production winding path: [winding-path.md](winding-path.md). Face IR: [surfacing.md](surfacing.md).

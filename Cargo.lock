@@ -32,6 +32,7 @@ dependencies = [
  "margen_generation",
  "margen_generation_graphing",
  "margen_generation_structure",
+ "margen_generation_surfacing",
  "mythic_dice",
  "mythic_math",
 ]
