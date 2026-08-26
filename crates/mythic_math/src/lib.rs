@@ -1,7 +1,7 @@
-//! Integer vector math utilities.
+//! Integer and float vector math utilities.
 
 mod vector2;
 mod vector3;
 
-pub use vector2::Vector2i;
-pub use vector3::Vector3i;
+pub use vector2::{Vector2, Vector2i};
+pub use vector3::{Vector3, Vector3i};

@@ -4,6 +4,7 @@ pub mod query;
 pub use distribution::{BiomeDistribution, BiomeDistributionConfig};
 pub use query::{BiomeNode, BiomeNodeId, BiomeQueryResult};
 
+use mythic_math::{Vector2, Vector2i};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
@@ -12,6 +13,37 @@ pub const BIOME_TAG_FLAT: &str = "Generation.Biome.Flat";
 
 /// Opaque placeable handle for material lists (adapter fills real assets later).
 pub type MaterialPlaceableId = u32;
+
+/// Engine-agnostic material placeable (Unreal `UMaterialPlaceable` generation fields).
+#[derive(Clone, Debug)]
+pub struct MaterialPlaceable {
+	pub id: MaterialPlaceableId,
+	pub face_span: Vector2,
+	pub requirements: BTreeSet<String>,
+	pub prevented_tags: BTreeSet<String>,
+	pub minimum_length: Vector2i,
+}
+
+impl Default for MaterialPlaceable {
+	fn default() -> Self {
+		Self {
+			id: 0,
+			face_span: Vector2::new(1.0, 1.0),
+			requirements: BTreeSet::new(),
+			prevented_tags: BTreeSet::new(),
+			minimum_length: Vector2i::new(1, 1),
+		}
+	}
+}
+
+impl MaterialPlaceable {
+	pub fn new(id: MaterialPlaceableId) -> Self {
+		Self {
+			id,
+			..Default::default()
+		}
+	}
+}
 
 #[derive(Clone, Debug, Default)]
 pub struct NestedBiome {
@@ -23,7 +55,7 @@ pub struct NestedBiome {
 #[derive(Clone, Debug, Default)]
 pub struct Biome {
 	pub id: u32,
-	pub materials: Vec<MaterialPlaceableId>,
+	pub materials: Vec<MaterialPlaceable>,
 	pub tags: BTreeSet<String>,
 	pub population_tags: BTreeMap<String, i32>,
 	pub nested_biomes: Vec<NestedBiome>,

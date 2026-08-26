@@ -5,7 +5,7 @@ Engine-agnostic **Rust** library for generating congruent, maze-like game worlds
 This repository is a Cargo workspace of **focused crates** (Unreal modules → crates; no umbrella packages):
 
 - **mythic_*** — utilities (`mythic_math`, `mythic_dice`, `mythic_distribution`)
-- **margen_generation*** — world generation pipeline (`margen_generation`, `margen_generation_graphing`, `margen_generation_structure`, `margen_generation_graphing_analysis`)
+- **margen_generation*** — world generation pipeline (`margen_generation`, `margen_generation_graphing`, `margen_generation_structure`, `margen_generation_graphing_analysis`, `margen_generation_surfacing`)
 - **margen_ffi** — C ABI (`crates/margen_ffi`, header [`include/margen.h`](include/margen.h))
 
 Godot integration lives in the sibling **margen-godot** repository (GDExtension linking this ABI).

@@ -76,6 +76,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "margen_generation_surfacing"
+version = "0.1.0"
+dependencies = [
+ "margen_generation",
+ "mythic_dice",
+ "mythic_math",
+]
+
+[[package]]
 name = "mythic_dice"
 version = "0.1.0"
 dependencies = [

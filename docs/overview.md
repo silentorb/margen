@@ -18,7 +18,7 @@ Margen generates congruent, maze-like game worlds from atomic parts with organic
 | Layer | Crates | Purpose |
 |-------|--------|---------|
 | **Mythic** | `mythic_math`, `mythic_dice`, `mythic_distribution` | General utilities. See [mythic.md](mythic.md). |
-| **Generation** | `margen_generation` → `margen_generation_graphing` → `margen_generation_structure` → `margen_generation_graphing_analysis` | World generation pipeline (UE Generation* modules as separate crates). |
+| **Generation** | `margen_generation` → `margen_generation_graphing` → `margen_generation_structure` → `margen_generation_graphing_analysis` → `margen_generation_surfacing` | World generation pipeline (UE Generation* modules as separate crates). |
 | **C ABI** | `margen_ffi` | C ABI (`include/margen.h`) for engine hosts (margen-godot, future C# P/Invoke). |
 
 There is **no** catch-all `mythic` or `margen` crate. Callers depend on the leaf crates they need.
@@ -47,10 +47,11 @@ Historical C++ near-copy policy and sources: branch **`archive/cpp-port`**.
 | 1 | Generation core types + story → `CellGrid` | **Done** (`margen_generation`, `margen_generation_structure` + C ABI) |
 | 1–2 | GenerationStructure (rasterization, optional cluster connect, Block/congruence, Biome type, spatial `BiomeDistribution`, prefab-seed `windingPath` / `generate_world_grid`) | **Done** (nested sub-biomes deferred; refinement later) |
 | 2 | GenerationGraphingAnalysis + Population (math) | **Done** (GraphingAnalysis crate); Population **Later** |
-| 3+ | Surfacing face IR, Integration facade | Later (each as its own crate when ported) |
+| 3 | GenerationSurfacing face IR through `RenderFace` | **Done** (`margen_generation_surfacing`; empty corner maps = prism faces) |
+| 3+ | Integration facade, face/world-grid C ABI, `GridRefinement` | Later (each as its own crate / export when ported) |
 | — | Modeling / Editing / SimulationGeneration game glue | Rewrite, defer, or marloth-side |
 
-Story graph pipeline detail: [story-graph.md](story-graph.md). Sector analysis detail: [sector-analysis.md](sector-analysis.md). Production winding path: [winding-path.md](winding-path.md).
+Story graph pipeline detail: [story-graph.md](story-graph.md). Sector analysis detail: [sector-analysis.md](sector-analysis.md). Production winding path: [winding-path.md](winding-path.md). Face IR: [surfacing.md](surfacing.md).
 
 ## Engine-agnostic types
 

@@ -8,5 +8,6 @@ members = [
     "crates/margen_generation_graphing",
     "crates/margen_generation_structure",
     "crates/margen_generation_graphing_analysis",
+    "crates/margen_generation_surfacing",
     "crates/margen_ffi",
 ]

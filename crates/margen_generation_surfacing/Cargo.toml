@@ -1,0 +1,11 @@
+[package]
+name = "margen_generation_surfacing"
+version = "0.1.0"
+edition = "2021"
+description = "Face IR: gather, arrange, paint, convert to RenderFace"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+margen_generation = { path = "../margen_generation" }
+mythic_math = { path = "../mythic_math" }
+mythic_dice = { path = "../mythic_dice" }

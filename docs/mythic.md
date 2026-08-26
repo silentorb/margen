@@ -19,7 +19,7 @@ Generation depended primarily on **MythicSimulation** (`Dice`, math, distributio
 
 | Crate | Contents |
 |-------|----------|
-| `mythic_math` | `Vector2i`, `Vector3i` |
+| `mythic_math` | `Vector2i`, `Vector3i`, `Vector2`, `Vector3` (f32) |
 | `mythic_dice` | `Dice`, `get_static_dice`, `psuedorandom` (`StdRng`; not bit-identical to C++ `std::mt19937`) |
 | `mythic_distribution` | `shuffle_vec`, `select_many_ordered` (depends on `mythic_dice`) |
 

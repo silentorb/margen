@@ -6,7 +6,7 @@ pub mod distribution;
 
 pub use biomes::{
 	biome_from_id, constant_get_biome, default_biome, Biome, BiomeDistribution, BiomeNodeId,
-	BiomeQueryResult, BIOME_TAG_FLAT,
+	BiomeQueryResult, MaterialPlaceable, MaterialPlaceableId, BIOME_TAG_FLAT,
 };
 pub use core::*;
 pub use distribution::{get_or_create_lazy_point, sample_lazy_points};
