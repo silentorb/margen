@@ -1,0 +1,9 @@
+[package]
+name = "mythic_dice"
+version = "0.1.0"
+edition = "2021"
+description = "Seeded RNG (Dice) and pseudo-random helpers"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+rand = "0.8"

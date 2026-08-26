@@ -24,13 +24,13 @@ Rasterize/connect sample biomes via constant `GetBiome` (single biome) or spatia
 | `rasterize_cluster_grid` | Expands sparse cluster cells into room-sized hex footprints (`Block` layers via `winding_path_block`). |
 | `connect_cluster_cells` | Optional corridors between scaled cluster centers (default off; matches Unreal `CONNECT_CLUSTERS`). |
 
-Public composition API in margen: `generate_story_grid` / `generate_story_grid_with_config` (`crates/margen/src/structure/story/generate_story_grid.rs`). C ABI: `margen_generate_story_grid` in [`include/margen.h`](../include/margen.h) (optional `biome_count` / `biome_ids`; zero count uses the default single biome).
+Public composition API: `generate_story_grid` / `generate_story_grid_with_config` (`crates/margen_generation_structure/src/story/generate_story_grid.rs`). C ABI: `margen_generate_story_grid` in [`include/margen.h`](../include/margen.h) (optional `biome_count` / `biome_ids`; zero count uses the default single biome).
 
 Default story raster config: `radius=3`, `margin=1`, `headroom=3`, `connect_clusters=false`. Default biome pool is a single `default_biome()`; multiple entries enable spatial `BiomeDistribution`.
 
 ## Connection attributes
 
-Defined in `crates/margen/src/story/types.rs` (`story_connection_attribute`):
+Defined in `crates/margen_generation_graphing/src/story/types.rs` (`story_connection_attribute`):
 
 - **`direct`** — nodes are spatial neighbors with no gating between them.
 - **`unlocks`** — the source node holds the means to open progress toward the target (switch/key semantics downstream).

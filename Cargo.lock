@@ -26,26 +26,72 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
 
 [[package]]
-name = "margen"
+name = "margen_ffi"
 version = "0.1.0"
 dependencies = [
- "mythic",
+ "margen_generation",
+ "margen_generation_graphing",
+ "margen_generation_structure",
+ "mythic_dice",
+ "mythic_math",
 ]
 
 [[package]]
-name = "margen-ffi"
+name = "margen_generation"
 version = "0.1.0"
 dependencies = [
- "margen",
- "mythic",
+ "mythic_dice",
+ "mythic_math",
 ]
 
 [[package]]
-name = "mythic"
+name = "margen_generation_graphing"
+version = "0.1.0"
+dependencies = [
+ "margen_generation",
+ "mythic_dice",
+ "mythic_distribution",
+ "mythic_math",
+]
+
+[[package]]
+name = "margen_generation_graphing_analysis"
+version = "0.1.0"
+dependencies = [
+ "margen_generation",
+ "margen_generation_graphing",
+ "margen_generation_structure",
+ "mythic_dice",
+ "mythic_math",
+]
+
+[[package]]
+name = "margen_generation_structure"
+version = "0.1.0"
+dependencies = [
+ "margen_generation",
+ "margen_generation_graphing",
+ "mythic_dice",
+ "mythic_math",
+]
+
+[[package]]
+name = "mythic_dice"
 version = "0.1.0"
 dependencies = [
  "rand",
 ]
+
+[[package]]
+name = "mythic_distribution"
+version = "0.1.0"
+dependencies = [
+ "mythic_dice",
+]
+
+[[package]]
+name = "mythic_math"
+version = "0.1.0"
 
 [[package]]
 name = "ppv-lite86"

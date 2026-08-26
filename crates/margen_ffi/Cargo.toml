@@ -1,0 +1,16 @@
+[package]
+name = "margen_ffi"
+version = "0.1.0"
+edition = "2021"
+description = "C ABI for margen world generation"
+license = "MIT OR Apache-2.0"
+
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+margen_generation = { path = "../margen_generation" }
+margen_generation_structure = { path = "../margen_generation_structure" }
+margen_generation_graphing = { path = "../margen_generation_graphing" }
+mythic_dice = { path = "../mythic_dice" }
+mythic_math = { path = "../mythic_math" }

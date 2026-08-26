@@ -1,0 +1,10 @@
+[package]
+name = "margen_generation"
+version = "0.1.0"
+edition = "2021"
+description = "Core generation types (cells, biomes, distribution)"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+mythic_math = { path = "../mythic_math" }
+mythic_dice = { path = "../mythic_dice" }

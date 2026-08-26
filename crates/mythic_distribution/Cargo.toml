@@ -1,0 +1,9 @@
+[package]
+name = "mythic_distribution"
+version = "0.1.0"
+edition = "2021"
+description = "Shuffle and selection helpers over Dice"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+mythic_dice = { path = "../mythic_dice" }

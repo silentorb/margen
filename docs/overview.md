@@ -13,13 +13,15 @@ Margen generates congruent, maze-like game worlds from atomic parts with organic
 - Robust even distribution algorithms
 - Spatially aware placement so actors fit their spaces
 
-## Layers
+## Layers (crates)
 
-| Layer | Purpose |
-|-------|---------|
-| **mythic** | General utilities (`Dice`, `Vector3i`, …). See [mythic.md](mythic.md). |
-| **margen** | World generation (graphing → structure → analysis → population → surfacing → integration). |
-| **margen-ffi** | C ABI (`include/margen.h`) for engine hosts (margen-godot, future C# P/Invoke). |
+| Layer | Crates | Purpose |
+|-------|--------|---------|
+| **Mythic** | `mythic_math`, `mythic_dice`, `mythic_distribution` | General utilities. See [mythic.md](mythic.md). |
+| **Generation** | `margen_generation` → `margen_generation_graphing` → `margen_generation_structure` → `margen_generation_graphing_analysis` | World generation pipeline (UE Generation* modules as separate crates). |
+| **C ABI** | `margen_ffi` | C ABI (`include/margen.h`) for engine hosts (margen-godot, future C# P/Invoke). |
+
+There is **no** catch-all `mythic` or `margen` crate. Callers depend on the leaf crates they need.
 
 ## Stack
 
@@ -31,6 +33,8 @@ Margen generates congruent, maze-like game worlds from atomic parts with organic
 
 Ports from Unreal should preserve **behavior and pipeline shape**, expressed as idiomatic Rust with **flat FP steps**. See [rust-style.md](rust-style.md).
 
+**Crate mapping:** each Unreal **module** becomes at least one Cargo **crate**. Folders inside a module become Rust modules within that crate. Catch-all modules (MythicSimulation) are split into focused crates. Extra focused crates are allowed; umbrella/facade crates are not.
+
 **Logic:** default = Unreal behavior. Intentional fixes use documented [improvement classes](../AGENTS.md#logic-improvement-classes). New classes need user approval once, then get listed in agent docs.
 
 Historical C++ near-copy policy and sources: branch **`archive/cpp-port`**.
@@ -39,18 +43,18 @@ Historical C++ near-copy policy and sources: branch **`archive/cpp-port`**.
 
 | Stage | Unreal modules | Status |
 |-------|----------------|--------|
-| 0 | MythicSimulation subset + GenerationGraphing (DAG/story, `sectors_to_dag`) | **Done** (Rust) |
-| 1 | Generation core types + story → `CellGrid` | **Done** (Rust: `story_to_clusters`, `generate_story_grid` + C ABI) |
-| 1–2 | GenerationStructure (rasterization, optional cluster connect, Block/congruence, Biome type, spatial `BiomeDistribution`) | **Done** (Rust: `rasterize_cluster_grid`, optional `connect_cluster_cells`, `BiomeDistribution`; nested sub-biomes deferred) |
-| 2 | GenerationGraphingAnalysis + Population (math) | **Done** (GraphingAnalysis: `partition_sectors`, `generate_goals`); Population **Later** |
-| 3+ | Surfacing face IR, Integration facade | Later |
+| 0 | MythicSimulation subset + GenerationGraphing (DAG/story, `sectors_to_dag`) | **Done** (`mythic_*`, `margen_generation_graphing`) |
+| 1 | Generation core types + story → `CellGrid` | **Done** (`margen_generation`, `margen_generation_structure` + C ABI) |
+| 1–2 | GenerationStructure (rasterization, optional cluster connect, Block/congruence, Biome type, spatial `BiomeDistribution`) | **Done** (nested sub-biomes deferred) |
+| 2 | GenerationGraphingAnalysis + Population (math) | **Done** (GraphingAnalysis crate); Population **Later** |
+| 3+ | Surfacing face IR, Integration facade | Later (each as its own crate when ported) |
 | — | Modeling / Editing / SimulationGeneration game glue | Rewrite, defer, or marloth-side |
 
 Story graph pipeline detail: [story-graph.md](story-graph.md). Sector analysis detail: [sector-analysis.md](sector-analysis.md).
 
 ## Engine-agnostic types
 
-Unreal engine types (`UBiome`, `UDataAsset`, GameplayTags, material assets) are **not** referenced from margen. Generation-relevant fields live as plain Rust structs (`margen::Biome`, placeable ids, tag strings). Hosts translate adapter resources at the boundary.
+Unreal engine types (`UBiome`, `UDataAsset`, GameplayTags, material assets) are **not** referenced from margen. Generation-relevant fields live as plain Rust structs (`margen_generation::Biome`, placeable ids, tag strings). Hosts translate adapter resources at the boundary.
 
 **Shared biome ownership:** many cells share one biome via `Arc<Biome>` on `WorldCell`. Numeric `Biome.id` maps to the C ABI `MargenCell.biome_id`.
 
@@ -60,7 +64,7 @@ Requires a Rust toolchain (1.88+ recommended).
 
 ```bash
 cargo test
-cargo build -p margen-ffi --release
+cargo build -p margen_ffi --release
 ```
 
 ## Engine boundary

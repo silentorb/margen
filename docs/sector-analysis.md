@@ -1,6 +1,6 @@
 # Sector analysis (path-derived partitioning)
 
-Technical reference for **GenerationGraphingAnalysis** in margen: deriving `SectorData` from an expanded `CellGrid` via path-depth analysis, then optional goal/switch placement.
+Technical reference for **GenerationGraphingAnalysis** (`margen_generation_graphing_analysis`): deriving `SectorData` from an expanded `CellGrid` via path-depth analysis, then optional goal/switch placement.
 
 For the story-graph layout pipeline, see [story-graph.md](story-graph.md). For player-facing progression intent, see Marloth [story progression](../../marloth/docs/game/features/gameplay/story-progression.md).
 
@@ -24,8 +24,8 @@ Public composition API:
 
 | Function | Role |
 |----------|------|
-| `partition_sectors` | Full analysis facade (`analysis/partition_sectors.rs`) |
-| `generate_goals` | `sectors_to_dag` → gated waypoints → switches with cell locations (`graphing/goals.rs`) |
+| `partition_sectors` | Full analysis facade (`margen_generation_graphing_analysis`) |
+| `generate_goals` | `sectors_to_dag` → gated waypoints → switches with cell locations (`goals.rs` in the analysis crate) |
 
 ## Story vs default paths
 
@@ -47,9 +47,9 @@ Production Unreal behavior uses **first pass only** plus `connect_neighbor_secto
 
 ## Types
 
-- `NeighborsMap` — path cell → neighbor path locations (`structure/querying`)
+- `NeighborsMap` — path cell → neighbor path locations (`margen_generation_structure::querying`)
 - `PathDepths` — BFS depth from `player_start` over path connectivity
-- `SectorData` — sectors, cell map, origin (`core/sector.rs`)
+- `SectorData` — sectors, cell map, origin (`margen_generation::core::sector`)
 - `LevelSwitchEntry` — source/target sector pair with switch cell location
 
 ## Port status
