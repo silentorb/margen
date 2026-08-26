@@ -44,7 +44,7 @@ When story mode is active:
 - Sector assignment is **one sector per story node** (derived from cell tags), not `partitionSectors` from path analysis.
 - Goal/switch creation uses a **simplified path** from `unlocks` edges; full `generateGoals` is bypassed or commented out.
 
-The default production path remains **prefab start + `windingPath`**, then analysis-derived sectors and full goal generation.
+The default production path is **prefab start + `windingPath`** (`generate_world_grid`), then analysis-derived sectors and full goal generation. See [winding-path.md](winding-path.md).
 
 ## Port status (margen)
 
@@ -58,6 +58,7 @@ The default production path remains **prefab start + `windingPath`**, then analy
 | `Biome` / constant `GetBiome`, `Block` / `add_connected_block`, congruence | Ported |
 | `rasterize_cluster_grid`, optional `connect_cluster_cells` | Ported |
 | Spatial `BiomeDistribution` sampling | Ported (nested sub-biome sampling deferred; commented out in Unreal) |
+| Prefab-seed `windingPath` / `generate_world_grid` | Ported (see [winding-path.md](winding-path.md)) |
 
 C++ reference implementation: git branch **`archive/cpp-port`**.
 

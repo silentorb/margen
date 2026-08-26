@@ -59,7 +59,7 @@ pub fn partition_sectors(input: AnalysisInput) -> AnalysisResult {
 mod integration_tests {
 	use super::*;
 	use crate::{generate_goals, validate_sector_map, PartitionConfig};
-	use margen_generation_structure::generate_story_grid;
+	use margen_generation_structure::{generate_story_grid, generate_world_grid, WorldGridConfig};
 	use mythic_dice::Dice;
 	use mythic_math::Vector3i;
 
@@ -97,5 +97,28 @@ mod integration_tests {
 				assert_ne!(switch.source_cell_location, Vector3i::none());
 			}
 		}
+	}
+
+	#[test]
+	fn winding_world_grid_partition_produces_sectors() {
+		let world = generate_world_grid(
+			&mut Dice::new(42),
+			&WorldGridConfig {
+				max_blocks: 24,
+				headroom: 3,
+				..Default::default()
+			},
+		);
+
+		let analysis = partition_sectors(AnalysisInput {
+			grid: world.grid,
+			player_start: world.player_start,
+			moveable_sector_height_offset: 3,
+			config: PartitionConfig::default(),
+		});
+
+		assert!(!analysis.sector_data.sectors.is_empty());
+		assert!(!analysis.path_depths.is_empty());
+		assert!(validate_sector_map(&analysis.grid, &analysis.sector_data.sectors).is_empty());
 	}
 }

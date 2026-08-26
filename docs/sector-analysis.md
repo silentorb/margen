@@ -32,7 +32,7 @@ Public composition API:
 | Path | Sector assignment |
 |------|-------------------|
 | **Story graph** (`generate_story_grid`) | Unreal assigns one sector per story node inline; margen story API does not yet populate `SectorData`. Analysis can still run on story-grid output for testing. |
-| **Default** (prefab + `windingPath`, not yet ported) | Unreal calls `partitionSectors` after grid growth. This is the production use case for the analysis layer. |
+| **Default** (prefab + `windingPath` via `generate_world_grid`) | Unreal calls `partitionSectors` after grid growth. Margen ports this production path; analysis smoke tests cover winding grids. See [winding-path.md](winding-path.md). |
 
 ## Configuration
 

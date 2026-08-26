@@ -3,6 +3,7 @@
 pub mod clusters;
 pub mod querying;
 pub mod story;
+pub mod structure;
 pub mod types;
 pub mod winding_path;
 
@@ -15,7 +16,10 @@ pub use story::{
 	generate_story_grid, generate_story_grid_with_config, story_to_clusters, SectorLocationMap,
 	StoryGridConfig, StoryGridResult,
 };
+pub use structure::{
+	generate_world_grid, generate_world_grid_default, WorldGridConfig, WorldGridResult,
+};
 pub use winding_path::{
-	connect_cells_with_path, connect_cells_with_paths, winding_path_block,
+	connect_cells_with_path, connect_cells_with_paths, winding_path, winding_path_block,
 	winding_path_block_default, Block, BlockLayer,
 };
