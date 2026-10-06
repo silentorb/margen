@@ -19,7 +19,7 @@ Margen generates congruent, maze-like game worlds from atomic parts with organic
 |-------|--------|---------|
 | **Mythic** | `mythic_math`, `mythic_dice`, `mythic_distribution` | General utilities. See [mythic.md](mythic.md). |
 | **Generation** | `margen_generation` → `margen_generation_graphing` → `margen_generation_structure` → `margen_generation_graphing_analysis` → `margen_generation_surfacing` | World generation pipeline (UE Generation* modules as separate crates). |
-| **C ABI** | `margen_ffi` | C ABI (`include/margen.h`) for engine hosts (margen-godot, future C# P/Invoke). |
+| **C ABI** | `margen_ffi` | C ABI (`include/margen.h`) for engine hosts (margen-godot / Marloth). Prefer bulk exports (`margen_world_faces_bulk`) over chatty getters. |
 
 There is **no** catch-all `mythic` or `margen` crate. Callers depend on the leaf crates they need.
 
@@ -27,7 +27,7 @@ There is **no** catch-all `mythic` or `margen` crate. Callers depend on the leaf
 
 - **Implementation language:** Rust (Cargo workspace under `crates/`).
 - **Engine boundary:** Generation outputs datasets; integrators convert later.
-- **Hosts:** margen-godot (C++ GDExtension) and Marloth game glue (C#) call the **C ABI**, not Rust internals.
+- **Hosts:** margen-godot (C++ GDExtension) and Marloth native glue call the **C ABI**, not Rust internals.
 
 ## Port policy
 

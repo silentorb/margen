@@ -60,6 +60,18 @@ typedef struct MargenMaterialSlot {
 	int32_t slot_index;
 } MargenMaterialSlot;
 
+/* Contiguous face descriptor for bulk buffer export (indices into points/uvs). */
+typedef struct MargenBulkFaceDesc {
+	uint32_t point_begin;
+	uint32_t point_count;
+	uint32_t uv_begin;
+	uint32_t uv_count;
+	int32_t location_x;
+	int32_t location_y;
+	int32_t location_z;
+	int32_t material_id;
+} MargenBulkFaceDesc;
+
 const char *margen_version(void);
 const char *margen_last_error(void);
 
@@ -109,6 +121,20 @@ MargenStatus margen_world_faces_get_uv(
 	size_t face_index,
 	size_t uv_index,
 	MargenVec2 *out_uv);
+
+/*
+ * Bulk export: contiguous points/uvs plus face descriptors. Pointers remain valid
+ * until margen_world_faces_free. Prefer this over per-point getters for hosts.
+ */
+MargenStatus margen_world_faces_bulk(
+	const MargenWorldFaces *handle,
+	const MargenVec3 **out_points,
+	size_t *out_point_count,
+	const MargenVec2 **out_uvs,
+	size_t *out_uv_count,
+	const MargenBulkFaceDesc **out_faces,
+	size_t *out_face_count);
+
 size_t margen_world_faces_material_count(const MargenWorldFaces *handle);
 MargenStatus margen_world_faces_get_material(
 	const MargenWorldFaces *handle,

@@ -108,11 +108,30 @@ pub struct MargenMaterialSlot {
 	pub slot_index: i32,
 }
 
+#[repr(C)]
+pub struct MargenBulkFaceDesc {
+	pub point_begin: u32,
+	pub point_count: u32,
+	pub uv_begin: u32,
+	pub uv_count: u32,
+	pub location_x: i32,
+	pub location_y: i32,
+	pub location_z: i32,
+	pub material_id: i32,
+}
+
+struct WorldFacesBulk {
+	points: Vec<MargenVec3>,
+	uvs: Vec<MargenVec2>,
+	faces: Vec<MargenBulkFaceDesc>,
+}
+
 /// Opaque world-faces handle (production grid + RenderFace IR).
 pub struct MargenWorldFaces {
 	render_faces: RenderFaces,
 	materials: Vec<(MaterialPlaceableId, i32)>,
 	player_start: Vector3i,
+	bulk: WorldFacesBulk,
 }
 
 impl MargenWorldFaces {
@@ -123,11 +142,44 @@ impl MargenWorldFaces {
 	) -> Self {
 		let mut materials: Vec<_> = used_materials.into_iter().collect();
 		materials.sort_by_key(|(_, slot)| *slot);
+		let bulk = Self::build_bulk(&render_faces);
 		Self {
 			render_faces,
 			materials,
 			player_start,
+			bulk,
 		}
+	}
+
+	fn build_bulk(render_faces: &RenderFaces) -> WorldFacesBulk {
+		let mut points = Vec::new();
+		let mut uvs = Vec::new();
+		let mut faces = Vec::with_capacity(render_faces.len());
+		for face in render_faces {
+			let point_begin = points.len() as u32;
+			for p in &face.points {
+				points.push(MargenVec3 {
+					x: p.x,
+					y: p.y,
+					z: p.z,
+				});
+			}
+			let uv_begin = uvs.len() as u32;
+			for uv in &face.uvs {
+				uvs.push(MargenVec2 { x: uv.x, y: uv.y });
+			}
+			faces.push(MargenBulkFaceDesc {
+				point_begin,
+				point_count: face.points.len() as u32,
+				uv_begin,
+				uv_count: face.uvs.len() as u32,
+				location_x: face.location.x,
+				location_y: face.location.y,
+				location_z: face.location.z,
+				material_id: face.material_id,
+			});
+		}
+		WorldFacesBulk { points, uvs, faces }
 	}
 }
 
@@ -421,6 +473,38 @@ pub unsafe extern "C" fn margen_world_faces_get_point(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn margen_world_faces_bulk(
+	handle: *const MargenWorldFaces,
+	out_points: *mut *const MargenVec3,
+	out_point_count: *mut usize,
+	out_uvs: *mut *const MargenVec2,
+	out_uv_count: *mut usize,
+	out_faces: *mut *const MargenBulkFaceDesc,
+	out_face_count: *mut usize,
+) -> MargenStatus {
+	clear_last_error();
+	if handle.is_null()
+		|| out_points.is_null()
+		|| out_point_count.is_null()
+		|| out_uvs.is_null()
+		|| out_uv_count.is_null()
+		|| out_faces.is_null()
+		|| out_face_count.is_null()
+	{
+		set_last_error("null bulk export argument");
+		return MARGEN_ERR_INVALID_ARGUMENT;
+	}
+	let bulk = &(*handle).bulk;
+	*out_points = bulk.points.as_ptr();
+	*out_point_count = bulk.points.len();
+	*out_uvs = bulk.uvs.as_ptr();
+	*out_uv_count = bulk.uvs.len();
+	*out_faces = bulk.faces.as_ptr();
+	*out_face_count = bulk.faces.len();
+	MARGEN_OK
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn margen_world_faces_get_uv(
 	handle: *const MargenWorldFaces,
 	face_index: usize,
@@ -624,6 +708,29 @@ mod tests {
 			}
 			assert!(has_material);
 			assert!(has_points);
+
+			let mut points_ptr: *const MargenVec3 = ptr::null();
+			let mut uvs_ptr: *const MargenVec2 = ptr::null();
+			let mut faces_ptr: *const MargenBulkFaceDesc = ptr::null();
+			let mut point_count = 0usize;
+			let mut uv_count = 0usize;
+			let mut bulk_face_count = 0usize;
+			assert_eq!(
+				margen_world_faces_bulk(
+					handle,
+					&mut points_ptr,
+					&mut point_count,
+					&mut uvs_ptr,
+					&mut uv_count,
+					&mut faces_ptr,
+					&mut bulk_face_count,
+				),
+				MARGEN_OK
+			);
+			assert_eq!(bulk_face_count, face_count);
+			assert!(!points_ptr.is_null());
+			assert!(point_count > 0);
+			assert!(!faces_ptr.is_null());
 
 			let material_count = margen_world_faces_material_count(handle);
 			assert!(material_count > 0);
