@@ -32,13 +32,13 @@ There is **no** catch-all `mythic` or `margen` crate. Callers depend on the leaf
 
 ## Port policy
 
-Ports from Unreal should preserve **behavior and pipeline shape**, expressed as idiomatic Rust with **flat FP steps**. See [rust-style.md](rust-style.md).
+Unreal is a **behavioral / feature reference**, not a 1:1 implementation template. Ports preserve **player-visible and pipeline outcomes**; types, control flow, and internal layout may differ. Prefer idiomatic Rust with **flat FP steps** on existing margen APIs. See [rust-style.md](rust-style.md) and [AGENTS.md](../AGENTS.md).
 
-**Crate mapping:** each Unreal **module** becomes at least one Cargo **crate**. Folders inside a module become Rust modules within that crate. Catch-all modules (MythicSimulation) are split into focused crates. Extra focused crates are allowed; umbrella/facade crates are not.
+**Crate mapping:** each Unreal **module** becomes at least one Cargo **crate**. Internal folder layout need not mirror Unreal. Catch-all modules (MythicSimulation) are split into focused crates. Extra focused crates are allowed; umbrella/facade crates are not.
 
-**Logic:** default = Unreal behavior. Intentional fixes use documented [improvement classes](../AGENTS.md#logic-improvement-classes). New classes need user approval once, then get listed in agent docs.
+**Logic outcomes:** match Unreal feature results by default. Intentional **outcome** divergences use documented [improvement classes](../AGENTS.md#logic-improvement-classes). Stylistic redesigns do not need a class. New classes need user approval once, then get listed in agent docs.
 
-Historical C++ near-copy policy and sources: branch **`archive/cpp-port`**.
+Historical C++ near-copy: branch **`archive/cpp-port`** (superseded; not the style target).
 
 ## Port roadmap (from Unreal)
 
@@ -46,10 +46,10 @@ Historical C++ near-copy policy and sources: branch **`archive/cpp-port`**.
 |-------|----------------|--------|
 | 0 | MythicSimulation subset + GenerationGraphing (DAG/story, `sectors_to_dag`) | **Done** (`mythic_*`, `margen_generation_graphing`) |
 | 1 | Generation core types + story → `CellGrid` | **Done** (`margen_generation`, `margen_generation_structure` + C ABI) |
-| 1–2 | GenerationStructure (rasterization, optional cluster connect, Block/congruence, Biome type, spatial `BiomeDistribution`, prefab-seed `windingPath` / `generate_world_grid`) | **Done** (nested sub-biomes deferred; refinement later) |
+| 1–2 | GenerationStructure (rasterization, optional cluster connect, Block/congruence, Biome type, spatial `BiomeDistribution`, prefab-seed `windingPath` / `generate_world_grid`) | **Done** (nested sub-biomes deferred) |
 | 2 | GenerationGraphingAnalysis + Population (math) | **Done** (GraphingAnalysis crate); Population **Later** |
-| 3 | GenerationSurfacing face IR through `RenderFace` | **Done** (`margen_generation_surfacing`; empty corner maps = prism faces) |
-| 3+ | Integration facade, face/world-grid C ABI, `GridRefinement` | **Done** (world-faces C ABI); Integration facade + `GridRefinement` later |
+| 3 | GenerationSurfacing face IR through `RenderFace` | **Done** (`margen_generation_surfacing`) |
+| 3+ | Integration facade, face/world-grid C ABI, `GridRefinement` | **Done** (world-faces C ABI + **path slopes**); Integration facade + wall-shift / prune / expansion later |
 | — | Modeling / Editing / SimulationGeneration game glue | Rewrite, defer, or marloth-side |
 
 Story graph pipeline detail: [story-graph.md](story-graph.md). Sector analysis detail: [sector-analysis.md](sector-analysis.md). Production winding path: [winding-path.md](winding-path.md). Face IR: [surfacing.md](surfacing.md). Coordinates: [coordinates.md](coordinates.md).

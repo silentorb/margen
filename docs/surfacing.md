@@ -31,9 +31,9 @@ flowchart LR
 
 Facade: `generate_render_faces` in `crates/margen_generation_surfacing`.
 
-## Empty-offset contract
+## Corner-map contract
 
-Empty `SharedCellVertexOffsets` and `HexCellCornersMap` still produce valid prism faces via default HexShape corner resolve. Organic `refineWorldGrid` (slopes / wall shift) remains deferred; it would fill those maps later.
+Empty `SharedCellVertexOffsets` and `HexCellCornersMap` still produce valid prism faces via default HexShape corner resolve. Production world-faces (`margen_generate_world_faces`) fills `HexCellCornersMap` via **`apply_path_slopes`** (path-slope Z scales). Wall shift / narrow walls / full `refineWorldGrid` orchestration remain deferred.
 
 ## Prerequisites (in `margen_generation`)
 
@@ -45,7 +45,8 @@ Empty `SharedCellVertexOffsets` and `HexCellCornersMap` still produce valid pris
 
 | Piece | Notes |
 |-------|-------|
-| `refineWorldGrid` | Surfacing inputs for organic corners |
+| Wall shift / narrow walls / prune / expansion | Rest of `GridRefinement` (path slopes **ported**) |
+| Full `refineWorldGrid` orchestrator | Wire remaining refinement steps |
 | Integration facade | `generate_sector_geometry` orchestration crate |
 | Mesh apply / Modeling | Engine hosts (margen-godot, marloth) |
 | Population | Separate layer |

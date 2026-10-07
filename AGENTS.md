@@ -32,11 +32,21 @@ Godot integration: sibling repo **margen-godot** (GDExtension calling the C ABI)
 - Prefer a **late engine boundary**: generation outputs datasets; engines convert later via the C ABI.
 - **Coordinates:** Rust and the C ABI use **right-handed Z-up** (+X right, +Y north/forward, +Z up). See [docs/coordinates.md](docs/coordinates.md). Hosts convert at the boundary.
 - Dice lives in **`mythic_dice`**; generation crates must not own RNG utilities.
-- **Friction:** If Unreal constructs force awkward Rust, stop and report (see rust-style).
+- **Friction:** If an Unreal construct would force awkward Rust, redesign with existing margen types—or stop and report (see rust-style). Do not copy UE patterns just to stay close to the reference source.
+
+## Unreal reference policy
+
+Unreal `Source/` / `Plugins/` are a **behavioral / feature reference**, not a template to mirror line-by-line.
+
+- Preserve **player-visible and pipeline outcomes** for the feature being ported.
+- **Implementation may differ**: types, control flow, intermediate maps, and folder layout inside a crate need not match Unreal.
+- Prefer **existing margen types and APIs**; design clean flat steps for this stack. Do not reintroduce UE-only patterns (UObject graphs, `TFixedAllocator` bags, compressed `FIntVector` keys, dead branches) unless they earn their keep.
+- **Crate mapping:** Unreal module → at least one Cargo crate. Internal modules need **not** mirror UE folders 1:1. No umbrella/facade crates.
+- Coordinates always adapt into RH Z-up (`rh-z-up-coordinates`).
 
 ## Logic improvement classes
 
-Default port = Unreal behavior. **New classes** of intentional logic change must be proposed and approved once; then document the class here so later matching fixes do not need re-approval.
+**Improvement classes** gate intentional **outcome** divergences from Unreal reference behavior (bug fixes / deliberate product changes)—not stylistic redesigns. New classes must be proposed and approved once; then document them here so later matching fixes do not need re-approval.
 
 | Class | Meaning |
 |-------|---------|
@@ -52,7 +62,7 @@ In the marloth workspace:
 - `unreal-marloth` → Unreal `Source/` (Generation*, Modeling, …)
 - `unreal-marloth-plugins` → Unreal `Plugins/` (Mythic, MythicTesting, …)
 
-Historical C++ port: git branch **`archive/cpp-port`**.
+Historical C++ near-copy: git branch **`archive/cpp-port`** (superseded policy; do not use as the style target).
 
 ## Build
 

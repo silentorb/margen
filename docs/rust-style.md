@@ -33,12 +33,12 @@ Prefer **lowest-common-denominator FP**: plain data, free functions, and many **
 
 ## Porting from Unreal
 
-- Preserve **algorithm and pipeline behavior**.
-- Express code in **idiomatic Rust** (snake_case APIs, modules within a crate).
-- **Unreal module ≡ Cargo crate** (minimum). Internal UE folders become Rust modules inside that crate. If a UE module was already a catch-all (MythicSimulation), **split into focused crates** instead of one `*_simulation` bag.
+- Preserve **player-visible and pipeline outcomes** for the feature; **do not** mirror Unreal structure 1:1.
+- Express code in **idiomatic Rust** on existing margen types (snake_case APIs, flat free-function steps).
+- **Unreal module ≡ Cargo crate** (minimum). Internal modules need not mirror UE folders. If a UE module was already a catch-all (MythicSimulation), **split into focused crates** instead of one `*_simulation` bag.
 - **Forbidden:** collapsing multiple Unreal modules into one crate; inventing umbrella/facade crates (`mythic`, `margen`). Extra focused crates are welcome.
-- Intentional logic fixes use documented [improvement classes](../AGENTS.md#logic-improvement-classes). Propose new classes before first use.
-- **Friction rule:** If an Unreal construct forces awkward Rust (UObject graphs, float-keyed maps, polymorphic editor subclasses, shared mutable bags that will not stage cleanly), **stop and report** instead of inventing a forced workaround.
+- Intentional **outcome** divergences use documented [improvement classes](../AGENTS.md#logic-improvement-classes). Propose new classes before first use. Pure redesigns of helpers/types do not need a class.
+- **Friction rule:** If an Unreal construct forces awkward Rust (UObject graphs, float-keyed maps, polymorphic editor subclasses, shared mutable bags that will not stage cleanly), **redesign** with margen APIs or **stop and report**—do not paste the UE shape into Rust.
 
 ## Naming and layout
 

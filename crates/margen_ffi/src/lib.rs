@@ -6,11 +6,11 @@ use margen_generation::{
 };
 use margen_generation_graphing::DagNodeId;
 use margen_generation_structure::{
-	generate_story_grid_with_config, generate_world_grid, StoryGridConfig, StoryGridResult,
-	WorldGridConfig,
+	apply_path_slopes, generate_story_grid_with_config, generate_world_grid, StoryGridConfig,
+	StoryGridResult, WorldGridConfig,
 };
 use margen_generation_surfacing::{generate_render_faces, RenderFaces, UsedMaterials};
-use margen_generation::{HexCellCornersMap, SharedCellVertexOffsets};
+use margen_generation::SharedCellVertexOffsets;
 use mythic_dice::Dice;
 use mythic_math::{Vector3, Vector3i};
 use std::cell::RefCell;
@@ -361,7 +361,7 @@ fn generate_world_faces_internal(seed: i32, max_blocks: i32) -> Result<MargenWor
 	};
 	let world = generate_world_grid(&mut dice, &config);
 	let corner_offsets = SharedCellVertexOffsets::new();
-	let hex_map = HexCellCornersMap::new();
+	let hex_map = apply_path_slopes(&world.grid);
 	let (render_faces, used_materials) =
 		generate_render_faces(&mut dice, &world.grid, &corner_offsets, &hex_map);
 	if render_faces.is_empty() {
@@ -374,7 +374,7 @@ fn generate_world_faces_internal(seed: i32, max_blocks: i32) -> Result<MargenWor
 	))
 }
 
-/// Generate a production world grid and Surfacing face IR (empty corner maps).
+/// Generate a production world grid and Surfacing face IR (path slopes applied).
 #[no_mangle]
 pub unsafe extern "C" fn margen_generate_world_faces(
 	seed: i32,

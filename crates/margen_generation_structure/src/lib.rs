@@ -2,6 +2,7 @@
 
 pub mod clusters;
 pub mod querying;
+pub mod refinement;
 pub mod story;
 pub mod structure;
 pub mod types;
@@ -12,6 +13,7 @@ pub use clusters::{
 	ClusterRasterizationConfig,
 };
 pub use querying::{get_path_locations, grid_to_neighbors_map, NeighborsMap};
+pub use refinement::{apply_path_slopes, cell_has_upward_paths};
 pub use story::{
 	generate_story_grid, generate_story_grid_with_config, story_to_clusters, SectorLocationMap,
 	StoryGridConfig, StoryGridResult,
