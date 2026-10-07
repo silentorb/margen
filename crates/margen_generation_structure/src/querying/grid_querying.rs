@@ -55,11 +55,11 @@ mod tests {
 	fn paths_to_neighbors_resolves_linked_locations() {
 		let origin = Vector3i::new(0, 0, 0);
 		let east = Vector3i::new(1, 0, 0);
-		let south = Vector3i::new(0, 1, 0);
+		let south = Vector3i::new(0, -1, 0);
 
 		let mut cell = WorldCell::default();
 		cell_add_attributes(&mut cell, cell_attribute::PATH);
-		cell_add_path(&mut cell, directions::SOUTHEAST);
+		cell_add_path(&mut cell, directions::NORTHEAST);
 		cell_add_path(&mut cell, directions::SOUTH);
 
 		let neighbors = paths_to_neighbors_array(origin, cell.paths);
@@ -74,8 +74,8 @@ mod tests {
 		let a = Vector3i::new(0, 0, 0);
 		let b = Vector3i::new(1, 0, 0);
 
-		let (loc_a, cell_a) = path_cell_with_links(a, &[(directions::SOUTHEAST, b)]);
-		let (loc_b, cell_b) = path_cell_with_links(b, &[(directions::NORTHWEST, a)]);
+		let (loc_a, cell_a) = path_cell_with_links(a, &[(directions::NORTHEAST, b)]);
+		let (loc_b, cell_b) = path_cell_with_links(b, &[(directions::SOUTHWEST, a)]);
 		grid.insert(loc_a, cell_a);
 		grid.insert(loc_b, cell_b);
 

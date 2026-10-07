@@ -40,6 +40,7 @@ typedef struct MargenVec2 {
 	float y;
 } MargenVec2;
 
+/* Right-handed Z-up: +X right, +Y north/forward, +Z up. Hosts convert at the boundary. */
 typedef struct MargenVec3 {
 	float x;
 	float y;

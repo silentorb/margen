@@ -33,11 +33,11 @@ impl SharedCellCorner {
 
 			match corner_index {
 				6 => {
-					location = location + Vector3i::new(0, -1, 0);
+					location = location + Vector3i::new(0, 1, 0);
 					corner_index = 8;
 				}
 				9 => {
-					location = location + Vector3i::new(-1, 1, 0);
+					location = location + Vector3i::new(-1, -1, 0);
 					corner_index = 7;
 				}
 				10 => {
@@ -240,6 +240,6 @@ mod tests {
 	fn normalize_lower_corner_to_positive_axis() {
 		let corner = SharedCellCorner::new(Vector3i::zero(), 0);
 		assert_eq!(corner.corner_index, 8);
-		assert_eq!(corner.location, Vector3i::new(0, -1, -1));
+		assert_eq!(corner.location, Vector3i::new(0, 1, -1));
 	}
 }

@@ -26,6 +26,7 @@ There is **no** catch-all `mythic` or `margen` crate. Callers depend on the leaf
 ## Stack
 
 - **Implementation language:** Rust (Cargo workspace under `crates/`).
+- **Coordinates:** Right-handed Z-up in Rust and the C ABI; hosts convert later. See [coordinates.md](coordinates.md).
 - **Engine boundary:** Generation outputs datasets; integrators convert later.
 - **Hosts:** margen-godot (C++ GDExtension) and Marloth native glue call the **C ABI**, not Rust internals.
 
@@ -51,7 +52,7 @@ Historical C++ near-copy policy and sources: branch **`archive/cpp-port`**.
 | 3+ | Integration facade, face/world-grid C ABI, `GridRefinement` | **Done** (world-faces C ABI); Integration facade + `GridRefinement` later |
 | — | Modeling / Editing / SimulationGeneration game glue | Rewrite, defer, or marloth-side |
 
-Story graph pipeline detail: [story-graph.md](story-graph.md). Sector analysis detail: [sector-analysis.md](sector-analysis.md). Production winding path: [winding-path.md](winding-path.md). Face IR: [surfacing.md](surfacing.md).
+Story graph pipeline detail: [story-graph.md](story-graph.md). Sector analysis detail: [sector-analysis.md](sector-analysis.md). Production winding path: [winding-path.md](winding-path.md). Face IR: [surfacing.md](surfacing.md). Coordinates: [coordinates.md](coordinates.md).
 
 ## Engine-agnostic types
 

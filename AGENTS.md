@@ -30,6 +30,7 @@ Godot integration: sibling repo **margen-godot** (GDExtension calling the C ABI)
 - **Crate policy:** Unreal module ≡ at least one Cargo crate. Prefer more focused crates over catch-alls. **Forbidden:** collapsing multiple UE modules into one crate, or inventing umbrella/facade crates (`mythic`, `margen`).
 - **Line endings:** Unix (LF). See [`.gitattributes`](.gitattributes) and [`.editorconfig`](.editorconfig).
 - Prefer a **late engine boundary**: generation outputs datasets; engines convert later via the C ABI.
+- **Coordinates:** Rust and the C ABI use **right-handed Z-up** (+X right, +Y north/forward, +Z up). See [docs/coordinates.md](docs/coordinates.md). Hosts convert at the boundary.
 - Dice lives in **`mythic_dice`**; generation crates must not own RNG utilities.
 - **Friction:** If Unreal constructs force awkward Rust, stop and report (see rust-style).
 
@@ -42,6 +43,7 @@ Default port = Unreal behavior. **New classes** of intentional logic change must
 | `partial-branch-bug` | One control-flow branch implements the intended effect; a sibling branch silently skips it. Fix the incomplete branch. |
 | `empty-input-sentinel` | Do not plant fake sentinel elements for empty inputs; keep consumers empty-safe (no-op / early return / explicit min-size contract) so the pipeline still runs. |
 | `incorrect-traversal-endpoint` | Traversal advances the wrong node/edge endpoint. Fix the walk; add a test when practical. |
+| `rh-z-up-coordinates` | Canonical space is right-handed Z-up (+Y north), not Unreal left-handed / south-positive hex tables. Adapt ports into this basis; see [docs/coordinates.md](docs/coordinates.md). |
 
 ## Reference (Unreal port source)
 
@@ -63,6 +65,7 @@ cargo build -p margen_ffi --release
 
 - [docs/rust-style.md](docs/rust-style.md) — living Rust style
 - [docs/overview.md](docs/overview.md) — margen goals, port roadmap
+- [docs/coordinates.md](docs/coordinates.md) — right-handed Z-up contract and host maps
 - [docs/surfacing.md](docs/surfacing.md) — face IR through `RenderFace`
 - [docs/mythic.md](docs/mythic.md) — Mythic crates and UE plugin scope
 - [docs/cpp-style.md](docs/cpp-style.md) — archived C++ pointer

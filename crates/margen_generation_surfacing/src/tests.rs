@@ -56,7 +56,7 @@ fn single_solid_cell_exposes_all_sides() {
 fn adjacent_solids_conceal_shared_wall() {
 	let mut grid = CellGrid::new();
 	grid.insert(Vector3i::zero(), solid_cell_with_materials());
-	grid.insert(Vector3i::new(0, -1, 0), solid_cell_with_materials());
+	grid.insert(Vector3i::new(0, 1, 0), solid_cell_with_materials());
 	let hex_map = HexCellCornersMap::new();
 	let faces = gather_faces(&grid, &hex_map);
 	assert!(!faces.contains_key(&FaceLocation::new(
@@ -64,7 +64,7 @@ fn adjacent_solids_conceal_shared_wall() {
 		directions::NORTH as i32
 	)));
 	assert!(!faces.contains_key(&FaceLocation::new(
-		Vector3i::new(0, -1, 0),
+		Vector3i::new(0, 1, 0),
 		directions::SOUTH as i32
 	)));
 }
@@ -91,6 +91,59 @@ fn arrange_wall_has_quad_points_floor_has_ring() {
 		))
 		.expect("floor");
 	assert_eq!(floor.points.len(), 8);
+}
+
+fn polygon_normal(points: &[mythic_math::Vector3]) -> mythic_math::Vector3 {
+	let a = points[0];
+	let b = points[1];
+	let c = points[2];
+	let ab = mythic_math::Vector3::new(b.x - a.x, b.y - a.y, b.z - a.z);
+	let ac = mythic_math::Vector3::new(c.x - a.x, c.y - a.y, c.z - a.z);
+	mythic_math::Vector3::new(
+		ab.y * ac.z - ab.z * ac.y,
+		ab.z * ac.x - ab.x * ac.z,
+		ab.x * ac.y - ab.y * ac.x,
+	)
+}
+
+#[test]
+fn face_normals_point_outward() {
+	let mut grid = CellGrid::new();
+	grid.insert(Vector3i::zero(), solid_cell_with_materials());
+	let hex_map = HexCellCornersMap::new();
+	let offsets = SharedCellVertexOffsets::new();
+	let faces = gather_faces(&grid, &hex_map);
+	let structures = arrange_face_points(&offsets, &hex_map, &faces);
+	let up = polygon_normal(
+		&structures
+			.get(&FaceLocation::new(
+				Vector3i::zero(),
+				directions::UP as i32,
+			))
+			.expect("up")
+			.points,
+	);
+	let down = polygon_normal(
+		&structures
+			.get(&FaceLocation::new(
+				Vector3i::zero(),
+				directions::DOWN as i32,
+			))
+			.expect("down")
+			.points,
+	);
+	let north = polygon_normal(
+		&structures
+			.get(&FaceLocation::new(
+				Vector3i::zero(),
+				directions::NORTH as i32,
+			))
+			.expect("north")
+			.points,
+	);
+	assert!(up.z > 0.0);
+	assert!(down.z < 0.0);
+	assert!(north.y > 0.0);
 }
 
 #[test]

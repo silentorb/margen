@@ -50,7 +50,7 @@ impl Mul<i32> for Vector2i {
 	}
 }
 
-/// Float 2D vector (UVs, planar offsets). Matches Unreal `FVector2f` / `Vector2f`.
+/// Float 2D vector (UVs, planar offsets).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Vector2 {
 	pub x: f32,

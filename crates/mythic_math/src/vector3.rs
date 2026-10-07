@@ -82,7 +82,7 @@ impl Hash for Vector3i {
 	}
 }
 
-/// Float 3D vector. Matches Unreal `Vector3` / `FVector3f`.
+/// Float 3D vector. World axes for generation: see margen `docs/coordinates.md`.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Vector3 {
 	pub x: f32,

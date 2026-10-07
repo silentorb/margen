@@ -34,25 +34,26 @@ pub mod directions {
 	pub const DOWN: DirectionIndex = 19;
 }
 
+// Right-handed Z-up: +Y north, +X east. Flat hex neighbors (cube distance 1).
 const GRID_DIRECTION_VECTORS: [Vector3i; ALL_DIRECTIONS_COUNT as usize] = [
-	Vector3i::new(0, -1, 0),
-	Vector3i::new(1, -1, 0),
-	Vector3i::new(1, 0, 0),
 	Vector3i::new(0, 1, 0),
-	Vector3i::new(-1, 1, 0),
+	Vector3i::new(1, 0, 0),
+	Vector3i::new(1, -1, 0),
+	Vector3i::new(0, -1, 0),
 	Vector3i::new(-1, 0, 0),
-	Vector3i::new(0, -1, 1),
-	Vector3i::new(1, -1, 1),
-	Vector3i::new(1, 0, 1),
+	Vector3i::new(-1, 1, 0),
 	Vector3i::new(0, 1, 1),
-	Vector3i::new(-1, 1, 1),
+	Vector3i::new(1, 0, 1),
+	Vector3i::new(1, -1, 1),
+	Vector3i::new(0, -1, 1),
 	Vector3i::new(-1, 0, 1),
-	Vector3i::new(0, -1, -1),
-	Vector3i::new(1, -1, -1),
-	Vector3i::new(1, 0, -1),
+	Vector3i::new(-1, 1, 1),
 	Vector3i::new(0, 1, -1),
-	Vector3i::new(-1, 1, -1),
+	Vector3i::new(1, 0, -1),
+	Vector3i::new(1, -1, -1),
+	Vector3i::new(0, -1, -1),
 	Vector3i::new(-1, 0, -1),
+	Vector3i::new(-1, 1, -1),
 	Vector3i::new(0, 0, 1),
 	Vector3i::new(0, 0, -1),
 ];
@@ -168,24 +169,24 @@ pub fn is_vertical_direction(index: DirectionIndex) -> bool {
 
 pub fn get_surrounding_offsets() -> [Vector3i; 6] {
 	[
-		Vector3i::new(0, -1, 0),
-		Vector3i::new(1, -1, 0),
-		Vector3i::new(1, 0, 0),
 		Vector3i::new(0, 1, 0),
-		Vector3i::new(-1, 1, 0),
+		Vector3i::new(1, 0, 0),
+		Vector3i::new(1, -1, 0),
+		Vector3i::new(0, -1, 0),
 		Vector3i::new(-1, 0, 0),
+		Vector3i::new(-1, 1, 0),
 	]
 }
 
 pub fn get_self_and_surrounding_offsets() -> [Vector3i; 7] {
 	[
 		Vector3i::new(0, 0, 0),
-		Vector3i::new(0, -1, 0),
-		Vector3i::new(1, -1, 0),
-		Vector3i::new(1, 0, 0),
 		Vector3i::new(0, 1, 0),
-		Vector3i::new(-1, 1, 0),
+		Vector3i::new(1, 0, 0),
+		Vector3i::new(1, -1, 0),
+		Vector3i::new(0, -1, 0),
 		Vector3i::new(-1, 0, 0),
+		Vector3i::new(-1, 1, 0),
 	]
 }
 
@@ -196,12 +197,12 @@ mod tests {
 	#[test]
 	fn round_trip_known_vectors() {
 		assert_eq!(
-			get_direction_index_from_vector(Vector3i::new(0, -1, 0)),
+			get_direction_index_from_vector(Vector3i::new(0, 1, 0)),
 			directions::NORTH
 		);
 		assert_eq!(
 			get_direction_index_from_vector(Vector3i::new(1, 0, 0)),
-			directions::SOUTHEAST
+			directions::NORTHEAST
 		);
 		assert_eq!(
 			get_direction_index_from_vector(Vector3i::new(0, 0, 1)),
@@ -209,7 +210,7 @@ mod tests {
 		);
 		assert_eq!(
 			get_grid_direction_vector(directions::NORTH),
-			Vector3i::new(0, -1, 0)
+			Vector3i::new(0, 1, 0)
 		);
 		assert_eq!(
 			get_opposite_direction_index(directions::NORTH),

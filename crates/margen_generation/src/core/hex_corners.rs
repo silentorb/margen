@@ -15,13 +15,14 @@ const LONG_LEG: f32 = 1.0;
 const SHORT_LEG: f32 = 1.0 / SQUARE_ROOT_OF_THREE;
 const HYPOTENUSE: f32 = 2.0 / SQUARE_ROOT_OF_THREE;
 
+// Ring order clockwise from the north-east vertex (+Y north, +X east).
 const CORNERS_2D: [Vector2; 6] = [
-	Vector2::new(SHORT_LEG, -LONG_LEG),
-	Vector2::new(HYPOTENUSE, 0.0),
 	Vector2::new(SHORT_LEG, LONG_LEG),
-	Vector2::new(-SHORT_LEG, LONG_LEG),
-	Vector2::new(-HYPOTENUSE, 0.0),
+	Vector2::new(HYPOTENUSE, 0.0),
+	Vector2::new(SHORT_LEG, -LONG_LEG),
 	Vector2::new(-SHORT_LEG, -LONG_LEG),
+	Vector2::new(-HYPOTENUSE, 0.0),
+	Vector2::new(-SHORT_LEG, LONG_LEG),
 ];
 
 fn default_corner_offsets() -> HexCellCorners {
@@ -179,6 +180,15 @@ mod tests {
 			assert_eq!(corners[i].z, -1.0);
 			assert_eq!(corners[i + 6].z, 1.0);
 		}
+		// North-side corners sit at +Y.
+		assert!(corners[0].y > 0.0);
+		assert!(corners[5].y > 0.0);
+	}
+
+	#[test]
+	fn north_cell_center_has_positive_y() {
+		let north = resolve_cell_coordinates(Vector3i::new(0, 1, 0));
+		assert!(north.y > 0.0);
 	}
 
 	#[test]
