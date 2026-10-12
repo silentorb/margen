@@ -160,6 +160,9 @@ fn face_normals_point_outward() {
 	}
 }
 
+/// Position remap is orientation-preserving (det +1), so RH-outward order stays
+/// outward after the map. Godot still needs **clockwise** front faces; that
+/// reversal happens in margen-godot at mesh build, not in this IR.
 #[test]
 fn face_normals_stay_outward_in_godot_space() {
 	let (structures, expected) = arranged_origin_faces();

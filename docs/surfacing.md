@@ -25,11 +25,11 @@ flowchart LR
 |------|------|
 | `gather_faces` | Visible sides of solid, non-custom-mesh cells (8 side directions). |
 | `gather_wall_columns` | Vertical spans of wall faces for material tiling. |
-| `arrange_face_points` | Resolve unit-space hex corners → polygon points per face. |
+| `arrange_face_points` | Resolve unit-space hex corners → polygon points per face. Point order is **RH-outward** (CCW from outside); see [coordinates.md](coordinates.md) **Face winding**. |
 | Appearances | Tag-based material pick + UVs (`Face.Wall` / `Floor` / `Ceiling`). |
 | `convert_faces` | Structure + appearance → `RenderFace` list. |
 
-Facade: `generate_render_faces` in `crates/margen_generation_surfacing`.
+Facade: `generate_render_faces` in `crates/margen_generation_surfacing`. Mesh hosts that need a different front-face convention (e.g. Godot clockwise) reverse at apply time—not in this crate.
 
 ## Corner-map contract
 

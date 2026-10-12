@@ -25,14 +25,15 @@ pub fn get_surface_points(
 	*collapsed_point = -1;
 
 	if direction == directions::UP as i32 {
-		// Reverse ring: outward (+Z) normal in right-handed Z-up.
+		// Reverse ring: RH-outward (+Z) normal (CCW from outside). Hosts may
+		// reverse again for engine front-face rules (e.g. Godot clockwise).
 		points.push(corners[13]);
 		for i in (0..6).rev() {
 			points.push(corners[i + 6]);
 		}
 		points.push(corners[5 + 6]);
 	} else if direction == directions::DOWN as i32 {
-		// Forward ring: outward (-Z) normal.
+		// Forward ring: RH-outward (-Z) normal.
 		points.push(corners[12]);
 		for i in 0..6 {
 			points.push(corners[i]);

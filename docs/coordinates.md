@@ -18,6 +18,12 @@ Hex grids lie in the **XY** plane; cell height and vertical neighbors use **Z**.
 
 Extents such as `cell_size` remap component-wise as Godot `(sx, sy_up, sz) →` margen `(sx, sz, sy_up)` before ABI calls.
 
+## Face winding
+
+Exported face polygons are ordered so a **right-handed** edge cross product points **outward** (counter-clockwise when viewed from outside). That is the engine-agnostic IR contract; see [surfacing.md](surfacing.md).
+
+**Godot** treats **clockwise** winding as the front face (default back-face cull). The orientation-preserving position map above does not flip winding, so **margen-godot** reverses triangle fan order (and derived normals) when building `ArrayMesh` surfaces. Do not reverse the Rust IR to match Godot—keep late conversion at the host.
+
 ## Versus Unreal reference
 
 Unreal Generation source is **left-handed Z-up** with south-positive **+Y** in the hex tables (`NORTH = (0, -1, 0)`). Margen intentionally diverges (`rh-z-up-coordinates`): compass vectors use **+Y north** on the same hex lattice (cube distance 1), and prism corner rings sit with north at **+Y**. Do not “fix” generation back to Unreal axis tables when porting further modules—adapt Unreal numbers into this basis instead.
