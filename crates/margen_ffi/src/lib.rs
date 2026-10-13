@@ -2,15 +2,17 @@
 
 use margen_generation::{
 	biome_from_id, resolve_cell_coordinates_scaled, surface_default_biome, MaterialPlaceableId,
-	WorldCell,
+	SharedCellVertexOffsets, WorldCell,
 };
 use margen_generation_graphing::DagNodeId;
+use margen_generation_population::{
+	populate_world, ActorPlacements, PopulateInput, PLACEABLE_PLAYER_SPAWN,
+};
 use margen_generation_structure::{
 	apply_path_slopes, generate_story_grid_with_config, generate_world_grid, StoryGridConfig,
 	StoryGridResult, WorldGridConfig,
 };
 use margen_generation_surfacing::{generate_render_faces, RenderFaces, UsedMaterials};
-use margen_generation::SharedCellVertexOffsets;
 use mythic_dice::Dice;
 use mythic_math::{Vector3, Vector3i};
 use std::cell::RefCell;
@@ -120,18 +122,53 @@ pub struct MargenBulkFaceDesc {
 	pub material_id: i32,
 }
 
+/// Abstract actor placement for host instantiation (first location only in this pass).
+#[repr(C)]
+pub struct MargenActorPlacement {
+	pub placeable_id: u32,
+	pub location_x: i32,
+	pub location_y: i32,
+	pub location_z: i32,
+	pub biome_id: u32,
+	pub sector: i16,
+	pub _pad: i16,
+}
+
 struct WorldFacesBulk {
 	points: Vec<MargenVec3>,
 	uvs: Vec<MargenVec2>,
 	faces: Vec<MargenBulkFaceDesc>,
 }
 
-/// Opaque world-faces handle (production grid + RenderFace IR).
+/// Opaque world-faces handle (production grid + RenderFace IR + placements).
 pub struct MargenWorldFaces {
 	render_faces: RenderFaces,
 	materials: Vec<(MaterialPlaceableId, i32)>,
 	player_start: Vector3i,
+	placements: Vec<MargenActorPlacement>,
 	bulk: WorldFacesBulk,
+}
+
+fn placements_to_c(placements: &ActorPlacements) -> Vec<MargenActorPlacement> {
+	placements
+		.iter()
+		.map(|placement| {
+			let location = placement
+				.locations
+				.first()
+				.copied()
+				.unwrap_or_else(Vector3i::zero);
+			MargenActorPlacement {
+				placeable_id: placement.placeable_id,
+				location_x: location.x,
+				location_y: location.y,
+				location_z: location.z,
+				biome_id: placement.biome_id,
+				sector: placement.sector,
+				_pad: 0,
+			}
+		})
+		.collect()
 }
 
 impl MargenWorldFaces {
@@ -139,6 +176,7 @@ impl MargenWorldFaces {
 		render_faces: RenderFaces,
 		used_materials: UsedMaterials,
 		player_start: Vector3i,
+		placements: ActorPlacements,
 	) -> Self {
 		let mut materials: Vec<_> = used_materials.into_iter().collect();
 		materials.sort_by_key(|(_, slot)| *slot);
@@ -147,6 +185,7 @@ impl MargenWorldFaces {
 			render_faces,
 			materials,
 			player_start,
+			placements: placements_to_c(&placements),
 			bulk,
 		}
 	}
@@ -360,6 +399,9 @@ fn generate_world_faces_internal(seed: i32, max_blocks: i32) -> Result<MargenWor
 		..Default::default()
 	};
 	let world = generate_world_grid(&mut dice, &config);
+	let placements = populate_world(&PopulateInput {
+		player_start: world.player_start,
+	});
 	let corner_offsets = SharedCellVertexOffsets::new();
 	let hex_map = apply_path_slopes(&world.grid);
 	let (render_faces, used_materials) =
@@ -371,6 +413,7 @@ fn generate_world_faces_internal(seed: i32, max_blocks: i32) -> Result<MargenWor
 		render_faces,
 		used_materials,
 		world.player_start,
+		placements,
 	))
 }
 
@@ -575,6 +618,31 @@ pub unsafe extern "C" fn margen_world_faces_player_start(
 	MARGEN_OK
 }
 
+/// Bulk export of abstract actor placements. Pointers remain valid until
+/// `margen_world_faces_free`. Hosts instantiate actors after mesh realization.
+#[no_mangle]
+pub unsafe extern "C" fn margen_world_faces_placements_bulk(
+	handle: *const MargenWorldFaces,
+	out_placements: *mut *const MargenActorPlacement,
+	out_placement_count: *mut usize,
+) -> MargenStatus {
+	clear_last_error();
+	if handle.is_null() || out_placements.is_null() || out_placement_count.is_null() {
+		set_last_error("null placements bulk export argument");
+		return MARGEN_ERR_INVALID_ARGUMENT;
+	}
+	let placements = &(*handle).placements;
+	*out_placements = placements.as_ptr();
+	*out_placement_count = placements.len();
+	MARGEN_OK
+}
+
+/// Well-known placeable id for the player spawn location marker.
+#[no_mangle]
+pub extern "C" fn margen_placeable_player_spawn() -> u32 {
+	PLACEABLE_PLAYER_SPAWN
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn margen_resolve_cell_center(
 	location_x: i32,
@@ -761,6 +829,24 @@ mod tests {
 				margen_resolve_cell_center(px, py, pz, 2.0, 2.0, 2.0, &mut center),
 				MARGEN_OK
 			);
+
+			let mut placements_ptr: *const MargenActorPlacement = ptr::null();
+			let mut placement_count = 0usize;
+			assert_eq!(
+				margen_world_faces_placements_bulk(
+					handle,
+					&mut placements_ptr,
+					&mut placement_count,
+				),
+				MARGEN_OK
+			);
+			assert_eq!(placement_count, 1);
+			assert!(!placements_ptr.is_null());
+			let placement = &*placements_ptr;
+			assert_eq!(placement.placeable_id, margen_placeable_player_spawn());
+			assert_eq!(placement.location_x, px);
+			assert_eq!(placement.location_y, py);
+			assert_eq!(placement.location_z, pz);
 
 			margen_world_faces_free(handle);
 		}

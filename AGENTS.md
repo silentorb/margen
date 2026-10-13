@@ -9,7 +9,7 @@ The workspace is **many small crates**. Unreal **modules** map to Cargo **crates
 | Area | Crates | Role |
 |------|--------|------|
 | **Mythic utilities** | `mythic_math`, `mythic_dice`, `mythic_distribution` | Vectors, RNG, shuffle/select. From Unreal Mythic / MythicSimulation feature areas—not world-gen. |
-| **Generation** | `margen_generation`, `margen_generation_graphing`, `margen_generation_structure`, `margen_generation_graphing_analysis`, `margen_generation_surfacing` | UE Generation* modules, one crate each (DAG enforced by Cargo). |
+| **Generation** | `margen_generation`, `margen_generation_graphing`, `margen_generation_structure`, `margen_generation_graphing_analysis`, `margen_generation_population`, `margen_generation_surfacing` | UE Generation* modules, one crate each (DAG enforced by Cargo). |
 | **C ABI** | `margen_ffi` | `cdylib` / `staticlib`; header [`include/margen.h`](include/margen.h). |
 
 Godot integration: sibling repo **margen-godot** (GDExtension calling the C ABI). Game-specific generation glue for Marloth belongs in the **marloth** Godot repo (likely C#) when needed—not here early.
@@ -77,5 +77,6 @@ cargo build -p margen_ffi --release
 - [docs/overview.md](docs/overview.md) — margen goals, port roadmap
 - [docs/coordinates.md](docs/coordinates.md) — right-handed Z-up contract and host maps
 - [docs/surfacing.md](docs/surfacing.md) — face IR through `RenderFace`
+- [docs/population.md](docs/population.md) — placeables and actor placements
 - [docs/mythic.md](docs/mythic.md) — Mythic crates and UE plugin scope
 - [docs/cpp-style.md](docs/cpp-style.md) — archived C++ pointer

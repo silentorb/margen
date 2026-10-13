@@ -73,6 +73,21 @@ typedef struct MargenBulkFaceDesc {
 	int32_t material_id;
 } MargenBulkFaceDesc;
 
+/* Abstract actor placement (first cell location). Hosts instantiate after mesh apply. */
+typedef struct MargenActorPlacement {
+	uint32_t placeable_id;
+	int32_t location_x;
+	int32_t location_y;
+	int32_t location_z;
+	uint32_t biome_id;
+	int16_t sector;
+	int16_t _pad;
+} MargenActorPlacement;
+
+enum {
+	MARGEN_PLACEABLE_PLAYER_SPAWN = 1
+};
+
 const char *margen_version(void);
 const char *margen_last_error(void);
 
@@ -146,6 +161,17 @@ MargenStatus margen_world_faces_player_start(
 	int32_t *out_x,
 	int32_t *out_y,
 	int32_t *out_z);
+
+/*
+ * Bulk export of abstract actor placements. Pointers remain valid until
+ * margen_world_faces_free. Prefer this over chatty getters.
+ */
+MargenStatus margen_world_faces_placements_bulk(
+	const MargenWorldFaces *handle,
+	const MargenActorPlacement **out_placements,
+	size_t *out_placement_count);
+
+uint32_t margen_placeable_player_spawn(void);
 
 MargenStatus margen_resolve_cell_center(
 	int32_t location_x,

@@ -49,6 +49,6 @@ Empty `SharedCellVertexOffsets` and `HexCellCornersMap` still produce valid pris
 | Full `refineWorldGrid` orchestrator | Wire remaining refinement steps |
 | Integration facade | `generate_sector_geometry` orchestration crate |
 | Mesh apply / Modeling | Engine hosts (margen-godot, marloth) |
-| Population | Separate layer |
+| Population | Separate layer — see [population.md](population.md) |
 
 Unreal reference: `GenerationSurfacing/Faces`, `Preparation/{Structure,Materials}`, `Integration/ConvertFaces`; corner resolve in `Generation/Core/{HexShape,SharedCellVertices}`.

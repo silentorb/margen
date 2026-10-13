@@ -31,6 +31,7 @@ version = "0.1.0"
 dependencies = [
  "margen_generation",
  "margen_generation_graphing",
+ "margen_generation_population",
  "margen_generation_structure",
  "margen_generation_surfacing",
  "mythic_dice",
@@ -63,6 +64,14 @@ dependencies = [
  "margen_generation_graphing",
  "margen_generation_structure",
  "mythic_dice",
+ "mythic_math",
+]
+
+[[package]]
+name = "margen_generation_population"
+version = "0.1.0"
+dependencies = [
+ "margen_generation",
  "mythic_math",
 ]
 

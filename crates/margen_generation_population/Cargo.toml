@@ -1,0 +1,10 @@
+[package]
+name = "margen_generation_population"
+version = "0.1.0"
+edition = "2021"
+description = "Population: placeables and actor placements (math)"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+margen_generation = { path = "../margen_generation" }
+mythic_math = { path = "../mythic_math" }
