@@ -1,8 +1,10 @@
 //! C ABI for margen world generation.
 
 use margen_generation::{
-	biome_from_id, resolve_cell_coordinates_scaled, surface_default_biome, MaterialPlaceableId,
-	SharedCellVertexOffsets, WorldCell,
+	biome_from_id, get_actual_direction_vector, get_grid_direction_vector,
+	resolve_absolute_cell_corner_coordinates, resolve_cell_coordinates_scaled,
+	surface_default_biome, MaterialPlaceableId, SharedCellVertexOffsets, WorldCell,
+	ALL_DIRECTIONS_COUNT, HEX_CELL_CORNER_COUNT,
 };
 use margen_generation_graphing::DagNodeId;
 use margen_generation_population::{
@@ -88,10 +90,19 @@ pub struct MargenVec2 {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy, Debug)]
 pub struct MargenVec3 {
 	pub x: f32,
 	pub y: f32,
 	pub z: f32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MargenIVec3 {
+	pub x: i32,
+	pub y: i32,
+	pub z: i32,
 }
 
 #[repr(C)]
@@ -140,12 +151,13 @@ struct WorldFacesBulk {
 	faces: Vec<MargenBulkFaceDesc>,
 }
 
-/// Opaque world-faces handle (production grid + RenderFace IR + placements).
+/// Opaque world-faces handle (production grid + RenderFace IR + placements + cells).
 pub struct MargenWorldFaces {
 	render_faces: RenderFaces,
 	materials: Vec<(MaterialPlaceableId, i32)>,
 	player_start: Vector3i,
 	placements: Vec<MargenActorPlacement>,
+	cells: Vec<MargenCell>,
 	bulk: WorldFacesBulk,
 }
 
@@ -171,12 +183,31 @@ fn placements_to_c(placements: &ActorPlacements) -> Vec<MargenActorPlacement> {
 		.collect()
 }
 
+fn cells_to_c(grid: &margen_generation::CellGrid) -> Vec<MargenCell> {
+	let mut cells: Vec<_> = grid
+		.iter()
+		.map(|(loc, cell)| MargenCell {
+			x: loc.x,
+			y: loc.y,
+			z: loc.z,
+			attributes: cell.attributes,
+			paths: cell.paths,
+			biome_id: cell.biome_id(),
+			sector: cell.sector,
+			_pad: 0,
+		})
+		.collect();
+	cells.sort_by_key(|c| (c.x, c.y, c.z));
+	cells
+}
+
 impl MargenWorldFaces {
 	fn from_parts(
 		render_faces: RenderFaces,
 		used_materials: UsedMaterials,
 		player_start: Vector3i,
 		placements: ActorPlacements,
+		cells: Vec<MargenCell>,
 	) -> Self {
 		let mut materials: Vec<_> = used_materials.into_iter().collect();
 		materials.sort_by_key(|(_, slot)| *slot);
@@ -186,6 +217,7 @@ impl MargenWorldFaces {
 			materials,
 			player_start,
 			placements: placements_to_c(&placements),
+			cells,
 			bulk,
 		}
 	}
@@ -402,6 +434,7 @@ fn generate_world_faces_internal(seed: i32, max_blocks: i32) -> Result<MargenWor
 	let placements = populate_world(&PopulateInput {
 		player_start: world.player_start,
 	});
+	let cells = cells_to_c(&world.grid);
 	let corner_offsets = SharedCellVertexOffsets::new();
 	let hex_map = apply_path_slopes(&world.grid);
 	let (render_faces, used_materials) =
@@ -414,6 +447,7 @@ fn generate_world_faces_internal(seed: i32, max_blocks: i32) -> Result<MargenWor
 		used_materials,
 		world.player_start,
 		placements,
+		cells,
 	))
 }
 
@@ -637,6 +671,25 @@ pub unsafe extern "C" fn margen_world_faces_placements_bulk(
 	MARGEN_OK
 }
 
+/// Bulk export of production grid cells (incl. path bits). Pointers remain valid
+/// until `margen_world_faces_free`.
+#[no_mangle]
+pub unsafe extern "C" fn margen_world_faces_cells_bulk(
+	handle: *const MargenWorldFaces,
+	out_cells: *mut *const MargenCell,
+	out_cell_count: *mut usize,
+) -> MargenStatus {
+	clear_last_error();
+	if handle.is_null() || out_cells.is_null() || out_cell_count.is_null() {
+		set_last_error("null cells bulk export argument");
+		return MARGEN_ERR_INVALID_ARGUMENT;
+	}
+	let cells = &(*handle).cells;
+	*out_cells = cells.as_ptr();
+	*out_cell_count = cells.len();
+	MARGEN_OK
+}
+
 /// Well-known placeable id for the player spawn location marker.
 #[no_mangle]
 pub extern "C" fn margen_placeable_player_spawn() -> u32 {
@@ -664,6 +717,85 @@ pub unsafe extern "C" fn margen_resolve_cell_center(
 		x: center.x,
 		y: center.y,
 		z: center.z,
+	};
+	MARGEN_OK
+}
+
+/// Unit face direction for path connection spokes (RH Z-up). `direction` in `[0, 20)`.
+#[no_mangle]
+pub unsafe extern "C" fn margen_resolve_direction_vector(
+	direction: i32,
+	out_direction: *mut MargenVec3,
+) -> MargenStatus {
+	if out_direction.is_null() {
+		set_last_error("out_direction is null");
+		return MARGEN_ERR_INVALID_ARGUMENT;
+	}
+	if direction < 0 || direction >= ALL_DIRECTIONS_COUNT as i32 {
+		set_last_error("direction out of range");
+		return MARGEN_ERR_INVALID_ARGUMENT;
+	}
+	let v = get_actual_direction_vector(direction as i8);
+	*out_direction = MargenVec3 {
+		x: v.x,
+		y: v.y,
+		z: v.z,
+	};
+	MARGEN_OK
+}
+
+/// Ideal hex prism corners (empty shared offsets) for cell-boundary visualization.
+///
+/// Writes [`HEX_CELL_CORNER_COUNT`] absolute positions into `out_corners`.
+#[no_mangle]
+pub unsafe extern "C" fn margen_resolve_default_cell_corners(
+	location_x: i32,
+	location_y: i32,
+	location_z: i32,
+	cell_size_x: f32,
+	cell_size_y: f32,
+	cell_size_z: f32,
+	out_corners: *mut MargenVec3,
+) -> MargenStatus {
+	if out_corners.is_null() {
+		set_last_error("out_corners is null");
+		return MARGEN_ERR_INVALID_ARGUMENT;
+	}
+	let location = Vector3i::new(location_x, location_y, location_z);
+	let cell_size = Vector3::new(cell_size_x, cell_size_y, cell_size_z);
+	let empty = SharedCellVertexOffsets::new();
+	let corners =
+		resolve_absolute_cell_corner_coordinates(cell_size, cell_size * 0.5, &empty, location);
+	let out = slice::from_raw_parts_mut(out_corners, HEX_CELL_CORNER_COUNT);
+	for (dst, src) in out.iter_mut().zip(corners.iter()) {
+		*dst = MargenVec3 {
+			x: src.x,
+			y: src.y,
+			z: src.z,
+		};
+	}
+	MARGEN_OK
+}
+
+/// Integer grid neighbor offset. `direction` in `[0, 20)`.
+#[no_mangle]
+pub unsafe extern "C" fn margen_resolve_grid_direction(
+	direction: i32,
+	out_offset: *mut MargenIVec3,
+) -> MargenStatus {
+	if out_offset.is_null() {
+		set_last_error("out_offset is null");
+		return MARGEN_ERR_INVALID_ARGUMENT;
+	}
+	if direction < 0 || direction >= ALL_DIRECTIONS_COUNT as i32 {
+		set_last_error("direction out of range");
+		return MARGEN_ERR_INVALID_ARGUMENT;
+	}
+	let v = get_grid_direction_vector(direction as i8);
+	*out_offset = MargenIVec3 {
+		x: v.x,
+		y: v.y,
+		z: v.z,
 	};
 	MARGEN_OK
 }
@@ -848,7 +980,78 @@ mod tests {
 			assert_eq!(placement.location_y, py);
 			assert_eq!(placement.location_z, pz);
 
+			let mut cells_ptr: *const MargenCell = ptr::null();
+			let mut cell_count = 0usize;
+			assert_eq!(
+				margen_world_faces_cells_bulk(handle, &mut cells_ptr, &mut cell_count),
+				MARGEN_OK
+			);
+			assert!(cell_count > 0);
+			assert!(!cells_ptr.is_null());
+			let mut has_paths = false;
+			for i in 0..cell_count {
+				if (*cells_ptr.add(i)).paths != 0 {
+					has_paths = true;
+					break;
+				}
+			}
+			assert!(has_paths, "expected at least one cell with path bits");
+
+			let mut dir = MargenVec3 {
+				x: 0.0,
+				y: 0.0,
+				z: 0.0,
+			};
+			assert_eq!(margen_resolve_direction_vector(0, &mut dir), MARGEN_OK);
+			assert!((dir.y - 1.0).abs() < 1e-5);
+
+			let mut grid_dir = MargenIVec3 { x: 0, y: 0, z: 0 };
+			assert_eq!(margen_resolve_grid_direction(0, &mut grid_dir), MARGEN_OK);
+			assert_eq!(grid_dir, MargenIVec3 { x: 0, y: 1, z: 0 });
+
+			let mut corners = [MargenVec3 {
+				x: 0.0,
+				y: 0.0,
+				z: 0.0,
+			}; HEX_CELL_CORNER_COUNT];
+			assert_eq!(
+				margen_resolve_default_cell_corners(0, 0, 0, 2.0, 2.0, 2.0, corners.as_mut_ptr()),
+				MARGEN_OK
+			);
+			let mut center = MargenVec3 {
+				x: 0.0,
+				y: 0.0,
+				z: 0.0,
+			};
+			assert_eq!(
+				margen_resolve_cell_center(0, 0, 0, 2.0, 2.0, 2.0, &mut center),
+				MARGEN_OK
+			);
+			assert!((corners[12].x - center.x).abs() < 1e-5);
+			assert!((corners[12].y - center.y).abs() < 1e-5);
+			assert!(corners[12].z < center.z);
+			assert!(corners[13].z > center.z);
+			for i in 0..6 {
+				assert!((corners[i].z - corners[12].z).abs() < 1e-5);
+				assert!((corners[i + 6].z - corners[13].z).abs() < 1e-5);
+			}
+
 			margen_world_faces_free(handle);
+		}
+	}
+
+	#[test]
+	fn ffi_grid_direction_rejects_out_of_range() {
+		unsafe {
+			let mut grid_dir = MargenIVec3 { x: 0, y: 0, z: 0 };
+			assert_eq!(
+				margen_resolve_grid_direction(-1, &mut grid_dir),
+				MARGEN_ERR_INVALID_ARGUMENT
+			);
+			assert_eq!(
+				margen_resolve_grid_direction(20, &mut grid_dir),
+				MARGEN_ERR_INVALID_ARGUMENT
+			);
 		}
 	}
 

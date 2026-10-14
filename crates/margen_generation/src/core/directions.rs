@@ -75,6 +75,17 @@ pub fn get_grid_direction_vector(direction: DirectionIndex) -> Vector3i {
 	GRID_DIRECTION_VECTORS[direction as u8 as usize]
 }
 
+#[cfg(test)]
+mod grid_direction_tests {
+	use super::*;
+
+	#[test]
+	fn north_grid_direction_is_positive_y() {
+		let north = get_grid_direction_vector(directions::NORTH);
+		assert_eq!(north, Vector3i::new(0, 1, 0));
+	}
+}
+
 pub fn rotate_direction_index(direction: DirectionIndex, turns: i32) -> DirectionIndex {
 	if direction >= directions::UP {
 		return direction;

@@ -50,9 +50,10 @@ Historical C++ near-copy: branch **`archive/cpp-port`** (superseded; not the sty
 | 2 | GenerationGraphingAnalysis + Population (math) | **Done** (GraphingAnalysis); Population **Started** (player-spawn placements; slots/distribution later) |
 | 3 | GenerationSurfacing face IR through `RenderFace` | **Done** (`margen_generation_surfacing`) |
 | 3+ | Integration facade, face/world-grid C ABI, `GridRefinement` | **Done** (world-faces C ABI + **path slopes**); Integration facade + wall-shift / prune / expansion later |
-| — | Modeling / Editing / SimulationGeneration game glue | Rewrite, defer, or marloth-side |
+| — | Modeling / SimulationGeneration game glue | Rewrite, defer, or marloth-side |
+| — | Editing visualization (`Editing/Visualization`) | **Started** — path spokes + cell boundaries; see [generation-visualization.md](generation-visualization.md) |
 
-Story graph pipeline detail: [story-graph.md](story-graph.md). Sector analysis detail: [sector-analysis.md](sector-analysis.md). Production winding path: [winding-path.md](winding-path.md). Face IR: [surfacing.md](surfacing.md). Population: [population.md](population.md). Coordinates: [coordinates.md](coordinates.md).
+Story graph pipeline detail: [story-graph.md](story-graph.md). Sector analysis detail: [sector-analysis.md](sector-analysis.md). Production winding path: [winding-path.md](winding-path.md). Face IR: [surfacing.md](surfacing.md). Population: [population.md](population.md). Coordinates: [coordinates.md](coordinates.md). Generation editor viz: [generation-visualization.md](generation-visualization.md).
 
 ## Engine-agnostic types
 

@@ -47,6 +47,16 @@ typedef struct MargenVec3 {
 	float z;
 } MargenVec3;
 
+typedef struct MargenIVec3 {
+	int32_t x;
+	int32_t y;
+	int32_t z;
+} MargenIVec3;
+
+enum {
+	MARGEN_HEX_CELL_CORNER_COUNT = 14
+};
+
 typedef struct MargenRenderFaceInfo {
 	int32_t location_x;
 	int32_t location_y;
@@ -171,6 +181,15 @@ MargenStatus margen_world_faces_placements_bulk(
 	const MargenActorPlacement **out_placements,
 	size_t *out_placement_count);
 
+/*
+ * Bulk export of production grid cells (incl. path bits). Pointers remain valid
+ * until margen_world_faces_free.
+ */
+MargenStatus margen_world_faces_cells_bulk(
+	const MargenWorldFaces *handle,
+	const MargenCell **out_cells,
+	size_t *out_cell_count);
+
 uint32_t margen_placeable_player_spawn(void);
 
 MargenStatus margen_resolve_cell_center(
@@ -181,6 +200,29 @@ MargenStatus margen_resolve_cell_center(
 	float cell_size_y,
 	float cell_size_z,
 	MargenVec3 *out_center);
+
+/* Unit face direction for path spokes (RH Z-up). direction in [0, 20). */
+MargenStatus margen_resolve_direction_vector(
+	int32_t direction,
+	MargenVec3 *out_direction);
+
+/*
+ * Ideal hex prism corners (empty SharedCellVertexOffsets) for cell-boundary wires.
+ * Writes MARGEN_HEX_CELL_CORNER_COUNT absolute positions into out_corners.
+ */
+MargenStatus margen_resolve_default_cell_corners(
+	int32_t location_x,
+	int32_t location_y,
+	int32_t location_z,
+	float cell_size_x,
+	float cell_size_y,
+	float cell_size_z,
+	MargenVec3 *out_corners);
+
+/* Grid neighbor offset for flat directions 0..5 (and full table 0..19). */
+MargenStatus margen_resolve_grid_direction(
+	int32_t direction,
+	MargenIVec3 *out_offset);
 
 #ifdef __cplusplus
 }

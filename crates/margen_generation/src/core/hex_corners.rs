@@ -1,3 +1,4 @@
+use crate::core::directions::{DirectionIndex, ALL_DIRECTIONS_COUNT};
 use crate::core::shared_cell_vertices::{
 	get_shared_vertex_offset, SharedCellCorner, SharedCellVertexOffsets,
 };
@@ -14,6 +15,38 @@ const SQUARE_ROOT_OF_THREE: f32 = 1.732_050_8;
 const LONG_LEG: f32 = 1.0;
 const SHORT_LEG: f32 = 1.0 / SQUARE_ROOT_OF_THREE;
 const HYPOTENUSE: f32 = 2.0 / SQUARE_ROOT_OF_THREE;
+const DIAGONAL_SHORT_LEG: f32 = 0.5;
+const DIAGONAL_LONG_LEG: f32 = DIAGONAL_SHORT_LEG * SQUARE_ROOT_OF_THREE;
+
+/// Unit face directions for path visualization (RH Z-up, +Y north).
+/// Adapted from Unreal `actualDirectionVectors` via `rh-z-up-coordinates` (Y flip).
+const ACTUAL_DIRECTION_VECTORS: [Vector3; ALL_DIRECTIONS_COUNT as usize] = [
+	Vector3::new(0.0, 1.0, 0.0),
+	Vector3::new(DIAGONAL_LONG_LEG, DIAGONAL_SHORT_LEG, 0.0),
+	Vector3::new(DIAGONAL_LONG_LEG, -DIAGONAL_SHORT_LEG, 0.0),
+	Vector3::new(0.0, -1.0, 0.0),
+	Vector3::new(-DIAGONAL_LONG_LEG, -DIAGONAL_SHORT_LEG, 0.0),
+	Vector3::new(-DIAGONAL_LONG_LEG, DIAGONAL_SHORT_LEG, 0.0),
+	Vector3::new(0.0, 1.0, 1.0),
+	Vector3::new(DIAGONAL_LONG_LEG, DIAGONAL_SHORT_LEG, 1.0),
+	Vector3::new(DIAGONAL_LONG_LEG, -DIAGONAL_SHORT_LEG, 1.0),
+	Vector3::new(0.0, -1.0, 1.0),
+	Vector3::new(-DIAGONAL_LONG_LEG, -DIAGONAL_SHORT_LEG, 1.0),
+	Vector3::new(-DIAGONAL_LONG_LEG, DIAGONAL_SHORT_LEG, 1.0),
+	Vector3::new(0.0, 1.0, -1.0),
+	Vector3::new(DIAGONAL_LONG_LEG, DIAGONAL_SHORT_LEG, -1.0),
+	Vector3::new(DIAGONAL_LONG_LEG, -DIAGONAL_SHORT_LEG, -1.0),
+	Vector3::new(0.0, -1.0, -1.0),
+	Vector3::new(-DIAGONAL_LONG_LEG, -DIAGONAL_SHORT_LEG, -1.0),
+	Vector3::new(-DIAGONAL_LONG_LEG, DIAGONAL_SHORT_LEG, -1.0),
+	Vector3::new(0.0, 0.0, 1.0),
+	Vector3::new(0.0, 0.0, -1.0),
+];
+
+/// World-space unit direction for a path connection spoke (RH Z-up).
+pub fn get_actual_direction_vector(direction: DirectionIndex) -> Vector3 {
+	ACTUAL_DIRECTION_VECTORS[direction as u8 as usize]
+}
 
 // Ring order clockwise from the north-east vertex (+Y north, +X east).
 const CORNERS_2D: [Vector2; 6] = [
@@ -169,6 +202,28 @@ pub fn apply_relative_cell_offsets(offsets: &HexCellCorners, corners: &mut HexCe
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::core::directions::directions;
+
+	#[test]
+	fn north_direction_faces_positive_y() {
+		let north = get_actual_direction_vector(directions::NORTH);
+		assert!((north.x - 0.0).abs() < 1e-5);
+		assert!((north.y - 1.0).abs() < 1e-5);
+		assert!((north.z - 0.0).abs() < 1e-5);
+	}
+
+	#[test]
+	fn flat_direction_vectors_are_unit_length_in_xy() {
+		for d in 0..6 {
+			let v = get_actual_direction_vector(d);
+			let len_xy = (v.x * v.x + v.y * v.y).sqrt();
+			assert!(
+				(len_xy - 1.0).abs() < 1e-5,
+				"direction {d} xy length {len_xy}"
+			);
+			assert!((v.z - 0.0).abs() < 1e-5);
+		}
+	}
 
 	#[test]
 	fn empty_offsets_resolve_default_prism() {

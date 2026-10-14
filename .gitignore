@@ -1,4 +1,6 @@
 /target/
+/target-agent/
+/.cargo-local/
 /.cache/
 /out/
 *.o
