@@ -31,21 +31,23 @@ impl SharedCellCorner {
 				location = location + Vector3i::new(0, 0, -1);
 			}
 
+			// Remap to canonical corners 7/8 using RH compass-equivalent neighbors
+			// (N / SW / NW), not component-wise Y-flips of Unreal deltas.
 			match corner_index {
 				6 => {
-					location = location + Vector3i::new(0, 1, 0);
+					location = location + Vector3i::new(0, 1, 0); // north
 					corner_index = 8;
 				}
 				9 => {
-					location = location + Vector3i::new(-1, -1, 0);
+					location = location + Vector3i::new(-1, 0, 0); // southwest
 					corner_index = 7;
 				}
 				10 => {
-					location = location + Vector3i::new(-1, 0, 0);
+					location = location + Vector3i::new(-1, 1, 0); // northwest
 					corner_index = 8;
 				}
 				11 => {
-					location = location + Vector3i::new(-1, 0, 0);
+					location = location + Vector3i::new(-1, 1, 0); // northwest
 					corner_index = 7;
 				}
 				_ => {}
@@ -214,6 +216,11 @@ pub fn apply_corner_shifting(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::core::directions::{
+		get_grid_direction_vector, rotate_direction_index, FLAT_DIRECTION_COUNT,
+	};
+	use mythic_math::Vector2i;
+	use std::collections::BTreeSet;
 
 	#[test]
 	fn set_get_round_trip() {
@@ -241,5 +248,89 @@ mod tests {
 		let corner = SharedCellCorner::new(Vector3i::zero(), 0);
 		assert_eq!(corner.corner_index, 8);
 		assert_eq!(corner.location, Vector3i::new(0, 1, -1));
+	}
+
+	fn xy(v: Vector3i) -> Vector2i {
+		Vector2i::new(v.x, v.y)
+	}
+
+	fn flat_xy(direction: DirectionIndex) -> Vector2i {
+		let v = get_grid_direction_vector(direction % FLAT_DIRECTION_COUNT);
+		Vector2i::new(v.x, v.y)
+	}
+
+	/// Geometric three cells meeting at local flat/upper corner `corner` of `location`.
+	fn expected_corner_cells(location: Vector3i, corner: DirectionIndex) -> BTreeSet<(i32, i32)> {
+		let d0 = corner % FLAT_DIRECTION_COUNT;
+		let origin = xy(location);
+		[
+			origin,
+			origin + flat_xy(d0),
+			origin + flat_xy(rotate_direction_index(d0, 1)),
+		]
+		.into_iter()
+		.map(|p| (p.x, p.y))
+		.collect()
+	}
+
+	/// Cells implied by SharedCellCorner canonicalization + side offsets (root, +dir, +cw).
+	fn remapped_corner_cells(location: Vector3i, corner: DirectionIndex) -> BTreeSet<(i32, i32)> {
+		let shared = SharedCellCorner::new(location, corner);
+		assert!(
+			shared.corner_index == 7 || shared.corner_index == 8,
+			"expected canonical corner 7 or 8, got {}",
+			shared.corner_index
+		);
+		let origin = Vector2i::new(shared.location.x, shared.location.y);
+		let d0 = shared.corner_index % FLAT_DIRECTION_COUNT;
+		[
+			origin,
+			origin + flat_xy(d0),
+			origin + flat_xy(rotate_direction_index(d0, 1)),
+		]
+		.into_iter()
+		.map(|p| (p.x, p.y))
+		.collect()
+	}
+
+	#[test]
+	fn shared_corner_remap_preserves_three_cell_set() {
+		let origins = [
+			Vector3i::zero(),
+			Vector3i::new(2, -1, 0),
+			Vector3i::new(-3, 4, 1),
+		];
+		for origin in origins {
+			for corner in 0..12i8 {
+				let expected = expected_corner_cells(origin, corner);
+				let actual = remapped_corner_cells(origin, corner);
+				assert_eq!(
+					actual, expected,
+					"corner {corner} at {origin:?}: remapped {actual:?} != geometric {expected:?}"
+				);
+			}
+		}
+	}
+
+	#[test]
+	fn southwest_and_northwest_remaps_use_compass_neighbors() {
+		// Case 9 (flat south / upper 9): SW neighbor, canonical corner 7.
+		let c9 = SharedCellCorner::new(Vector3i::zero(), 3);
+		assert_eq!(c9.corner_index, 7);
+		assert_eq!(c9.location, Vector3i::new(-1, 0, -1));
+
+		let c9u = SharedCellCorner::new(Vector3i::zero(), 9);
+		assert_eq!(c9u.corner_index, 7);
+		assert_eq!(c9u.location, Vector3i::new(-1, 0, 0));
+
+		// Case 10: NW neighbor, canonical corner 8.
+		let c10 = SharedCellCorner::new(Vector3i::zero(), 4);
+		assert_eq!(c10.corner_index, 8);
+		assert_eq!(c10.location, Vector3i::new(-1, 1, -1));
+
+		// Case 11: NW neighbor, canonical corner 7.
+		let c11 = SharedCellCorner::new(Vector3i::zero(), 5);
+		assert_eq!(c11.corner_index, 7);
+		assert_eq!(c11.location, Vector3i::new(-1, 1, -1));
 	}
 }

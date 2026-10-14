@@ -85,6 +85,71 @@ pub enum CongruenceError {
 	NeighboringUpward,
 	NoPath,
 	Flat,
+	/// Same-cell path bits share an edge corner but demand different destination Z.
+	SharedCornerPitch,
+}
+
+/// Yaw of a horizontal path bit (`0..6`), or `None` for pure vertical up/down.
+pub fn path_bit_yaw(direction: DirectionIndex) -> Option<DirectionIndex> {
+	if (0..HORIZONTAL_DIRECTION_COUNT).contains(&direction) {
+		Some(direction % FLAT_DIRECTION_COUNT)
+	} else {
+		None
+	}
+}
+
+/// Destination height delta for a path bit (−1 / 0 / +1).
+pub fn path_bit_destination_z_delta(direction: DirectionIndex) -> i8 {
+	use margen_generation::core::directions::directions;
+	if direction < FLAT_DIRECTION_COUNT {
+		0
+	} else if direction < directions::DOWN_NORTH {
+		1
+	} else if direction < directions::UP {
+		-1
+	} else if direction == directions::UP {
+		1
+	} else {
+		-1
+	}
+}
+
+/// Hex edge corners claimed by a horizontal path bit (`(yaw+5)%6`, `yaw`).
+pub fn path_bit_edge_corners(direction: DirectionIndex) -> Option<(u8, u8)> {
+	let yaw = path_bit_yaw(direction)?;
+	Some((((yaw + 5) % FLAT_DIRECTION_COUNT) as u8, yaw as u8))
+}
+
+/// True when two path bits share an edge corner and demand different destination Z.
+pub fn paths_conflict_on_shared_corner(a: DirectionIndex, b: DirectionIndex) -> bool {
+	if a == b {
+		return false;
+	}
+	let Some((a0, a1)) = path_bit_edge_corners(a) else {
+		return false;
+	};
+	let Some((b0, b1)) = path_bit_edge_corners(b) else {
+		return false;
+	};
+	if path_bit_destination_z_delta(a) == path_bit_destination_z_delta(b) {
+		return false;
+	}
+	a0 == b0 || a0 == b1 || a1 == b0 || a1 == b1
+}
+
+fn existing_paths_share_corner_pitch_conflict(
+	paths: CellPaths,
+	direction: DirectionIndex,
+) -> bool {
+	for existing in 0..HORIZONTAL_DIRECTION_COUNT {
+		if !has_direction(paths, existing) {
+			continue;
+		}
+		if paths_conflict_on_shared_corner(direction, existing) {
+			return true;
+		}
+	}
+	false
 }
 
 fn supports_new_upward_slope(paths: CellPaths, direction: DirectionIndex) -> CongruenceError {
@@ -106,6 +171,9 @@ fn supports_new_upward_slope(paths: CellPaths, direction: DirectionIndex) -> Con
 
 fn are_cell_paths_compatible(paths: CellPaths, direction: DirectionIndex) -> CongruenceError {
 	use margen_generation::core::directions::rotate_direction_index;
+	if existing_paths_share_corner_pitch_conflict(paths, direction) {
+		return CongruenceError::SharedCornerPitch;
+	}
 	if is_upward_direction(direction) {
 		supports_new_upward_slope(paths, direction)
 	} else if is_downward_direction(direction) {
@@ -249,7 +317,7 @@ pub fn can_place_block(
 mod tests {
 	use super::*;
 	use margen_generation::biomes::{default_biome, Biome, BIOME_TAG_FLAT};
-	use margen_generation::core::directions::directions;
+	use margen_generation::core::directions::{directions, get_opposite_direction_index};
 	use margen_generation::core::world_cell::cell_attribute;
 
 	fn path_cell() -> WorldCell {
@@ -264,6 +332,50 @@ mod tests {
 			attributes: cell_attribute::SOLID,
 			..Default::default()
 		}
+	}
+
+	fn path_solving(paths: CellPaths) -> SolvingCell {
+		SolvingCell {
+			attributes: cell_attribute::PATH,
+			paths,
+		}
+	}
+
+	fn hex_yaw_distance(a: DirectionIndex, b: DirectionIndex) -> i8 {
+		let d = ((a % 6) - (b % 6) + 6) % 6;
+		d.min(6 - d)
+	}
+
+	/// Spec for same-cell allow/deny: shared-corner pitch + legacy upward/downward masks.
+	fn expected_pair_error(existing: DirectionIndex, proposed: DirectionIndex) -> CongruenceError {
+		use margen_generation::core::directions::rotate_direction_index;
+		if paths_conflict_on_shared_corner(existing, proposed) {
+			return CongruenceError::SharedCornerPitch;
+		}
+		if is_upward_direction(proposed) {
+			let relative_base = proposed - directions::UP_NORTH;
+			let neighbor_mask = (1 << relative_base)
+				| (1 << ((relative_base + 5) % 6))
+				| (1 << ((relative_base + 1) % 6));
+			let non_neighbor_upward_mask =
+				(0x3Fu32 ^ neighbor_mask as u32) << directions::UP_NORTH;
+			let downward_mask = (neighbor_mask as u32) << directions::DOWN_NORTH;
+			if (existing as u32) < 32
+				&& (((1u32 << existing) & (non_neighbor_upward_mask | downward_mask)) != 0)
+			{
+				return CongruenceError::UpwardSlope;
+			}
+			return CongruenceError::None;
+		}
+		if is_downward_direction(proposed) {
+			let upward = proposed - 6;
+			if existing == rotate_direction_index(upward, 1)
+				|| existing == rotate_direction_index(upward, -1)
+			{
+				return CongruenceError::NeighboringUpward;
+			}
+		}
+		CongruenceError::None
 	}
 
 	#[test]
@@ -347,5 +459,118 @@ mod tests {
 
 		let candidate = new_solving_cell_from_biome(&default_biome());
 		assert!(!can_place_block(&grid, 3, &candidate, origin));
+	}
+
+	#[test]
+	fn flat_plus_same_yaw_up_is_shared_corner_pitch() {
+		let cell = path_solving(1u32 << directions::NORTH);
+		assert_eq!(
+			can_cell_connect_in_direction(&cell, directions::UP_NORTH),
+			CongruenceError::SharedCornerPitch
+		);
+	}
+
+	#[test]
+	fn flat_plus_adjacent_yaw_up_is_shared_corner_pitch() {
+		let cell = path_solving(1u32 << directions::NORTH);
+		assert_eq!(
+			can_cell_connect_in_direction(&cell, directions::UP_NORTHEAST),
+			CongruenceError::SharedCornerPitch
+		);
+		assert_eq!(
+			can_cell_connect_in_direction(&cell, directions::UP_NORTHWEST),
+			CongruenceError::SharedCornerPitch
+		);
+	}
+
+	#[test]
+	fn adjacent_upward_fan_is_allowed() {
+		let cell = path_solving(1u32 << directions::UP_NORTH);
+		assert_eq!(
+			can_cell_connect_in_direction(&cell, directions::UP_NORTHEAST),
+			CongruenceError::None
+		);
+		assert_eq!(
+			can_cell_connect_in_direction(&cell, directions::UP_NORTHWEST),
+			CongruenceError::None
+		);
+	}
+
+	#[test]
+	fn opposite_upward_pair_is_upward_slope() {
+		let cell = path_solving(1u32 << directions::UP_NORTH);
+		assert_eq!(
+			can_cell_connect_in_direction(&cell, directions::UP_SOUTH),
+			CongruenceError::UpwardSlope
+		);
+	}
+
+	#[test]
+	fn same_yaw_up_and_down_is_shared_corner_pitch() {
+		let cell = path_solving(1u32 << directions::UP_NORTH);
+		assert_eq!(
+			can_cell_connect_in_direction(&cell, directions::DOWN_NORTH),
+			CongruenceError::SharedCornerPitch
+		);
+		let cell = path_solving(1u32 << directions::DOWN_NORTH);
+		assert_eq!(
+			can_cell_connect_in_direction(&cell, directions::UP_NORTH),
+			CongruenceError::SharedCornerPitch
+		);
+	}
+
+	#[test]
+	fn path_bit_pair_matrix_matches_geometric_and_legacy_rules() {
+		for existing in 0..HORIZONTAL_DIRECTION_COUNT {
+			for proposed in 0..HORIZONTAL_DIRECTION_COUNT {
+				if existing == proposed {
+					continue;
+				}
+				let cell = path_solving(1u32 << existing);
+				let got = can_cell_connect_in_direction(&cell, proposed);
+				let want = expected_pair_error(existing, proposed);
+				assert_eq!(
+					got, want,
+					"existing={existing} proposed={proposed} yaw_dist={}",
+					hex_yaw_distance(existing, proposed)
+				);
+			}
+		}
+	}
+
+	#[test]
+	fn two_cell_up_links_accept_opposites() {
+		for yaw in 0..6i8 {
+			let up = yaw + directions::UP_NORTH;
+			let down = get_opposite_direction_index(up);
+			let lower = path_solving(0);
+			let upper = path_solving(0);
+			assert_eq!(
+				can_cells_be_connected(&lower, &upper, up),
+				CongruenceError::None,
+				"up {up}"
+			);
+			assert_eq!(
+				can_cells_be_connected(&upper, &lower, down),
+				CongruenceError::None,
+				"down {down}"
+			);
+		}
+	}
+
+	#[test]
+	fn invalid_curving_style_wrap_rejects_conflicting_second_slope() {
+		// After an upward fan is established, a non-neighbor up on the same cell is denied.
+		let cell = path_solving(
+			(1u32 << directions::UP_NORTH) | (1u32 << directions::UP_NORTHEAST),
+		);
+		assert_eq!(
+			can_cell_connect_in_direction(&cell, directions::UP_SOUTH),
+			CongruenceError::UpwardSlope
+		);
+		assert_eq!(
+			can_cell_connect_in_direction(&cell, directions::UP_SOUTHEAST),
+			CongruenceError::UpwardSlope
+		);
 	}
 }

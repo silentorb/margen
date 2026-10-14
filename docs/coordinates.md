@@ -27,3 +27,14 @@ Exported face polygons are ordered so a **right-handed** edge cross product poin
 ## Versus Unreal reference
 
 Unreal Generation source is **left-handed Z-up** with south-positive **+Y** in the hex tables (`NORTH = (0, -1, 0)`). Margen intentionally diverges (`rh-z-up-coordinates`): compass vectors use **+Y north** on the same hex lattice (cube distance 1), and prism corner rings sit with north at **+Y**. Do not “fix” generation back to Unreal axis tables when porting further modules—adapt Unreal numbers into this basis instead.
+
+### SharedCellCorner remaps
+
+`SharedCellCorner` collapses local corners onto canonical indices **7** and **8** by shifting the cell key. Unreal’s remap deltas are compass moves (north / southwest / northwest in UE vectors). Margen must use the **same compass neighbors expressed in RH grid vectors**, not component-wise Y-flips of the Unreal literals—flat diagonals differ (`UE NE=(1,-1)` vs Rust `NE=(1,0)`), so a Y-flip maps to the wrong cells and breaks slope corner columns.
+
+| Case | Compass | RH delta |
+|------|---------|----------|
+| 6 | North | `(0, 1, 0)` |
+| 9 | Southwest | `(-1, 0, 0)` |
+| 10 | Northwest | `(-1, 1, 0)` |
+| 11 | Northwest | `(-1, 1, 0)` |

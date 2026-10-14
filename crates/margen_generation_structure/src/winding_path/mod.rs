@@ -10,7 +10,8 @@ pub use common_blocks::{winding_path_block, winding_path_block_default};
 pub use congruence::{
 	block_space_is_available, can_cells_be_connected, can_place_block, cell_has_no_flat_slope_conflicts,
 	cell_has_viable_paths, gather_neighbor_cell_paths_array, new_solving_cell_from_biome,
-	new_solving_cell_from_world, CongruenceError, SolvingCell,
+	new_solving_cell_from_world, path_bit_destination_z_delta, path_bit_edge_corners, path_bit_yaw,
+	paths_conflict_on_shared_corner, CongruenceError, SolvingCell,
 };
 pub use grid_population::{
 	add_block, add_connected_block, block_has_available_space, connect_cell_neighbors,

@@ -35,6 +35,33 @@ Congruence gates (`can_place_block`):
 
 Priority (`get_cell_priority`): biome-junction rule only (`LIMIT_CELL_PATHS` default off; RoomDistribution unused in current Unreal).
 
+## Forbidden neighboring path combinations
+
+Slope sculpting needs each shared upper corner to have one coherent height demand. A path bit with yaw `y` claims hex edge corners `(y+5)%6` and `y`, at destination height Δz ∈ {−1, 0, +1}.
+
+**Geometric rule (runtime):** two path bits on the same cell conflict when their edges **share a corner** and their **destination Z differs** (`CongruenceError::SharedCornerPitch`). Encoded by `paths_conflict_on_shared_corner` in `congruence.rs`.
+
+| # | Combination | Gate / notes |
+|---|-------------|--------------|
+| 1 | Non-neighbor upward pair (yaw Δ ∈ {2,3}) | `UpwardSlope` (`supports_new_upward_slope`) |
+| 2 | New up vs down in proposed yaw neighborhood | `UpwardSlope` |
+| 3 | New down vs existing up at yaw ±1 | `NeighboringUpward` (kept; often also caught by #10–11) |
+| 4 | Flat attribute + any slope/vertical pitch | `Flat` |
+| 5 | Non-path endpoint | `NoPath` |
+| 6 | Flat over lower path / path over lower flat | `cell_has_no_flat_slope_conflicts` |
+| 7 | Headroom / non-solid floor | `block_space_is_available` |
+| 8 | Multi-link connect order | earlier bit can invalidate a later link |
+| 9 | Wrap near-miss closing a conflicting slope | must stay disconnected (`InvalidCurving`-class) |
+| 10 | Same yaw, different pitch (e.g. `NORTH` + `UP_NORTH`) | `SharedCornerPitch` |
+| 11 | Adjacent yaw, different pitch (e.g. `NORTH` + `UP_NORTHEAST`) | `SharedCornerPitch` |
+| 12 | Same-yaw up+down | `SharedCornerPitch` (symmetric) |
+
+**Allowed:** adjacent-yaw upward fan (`UP_NORTH` + `UP_NORTHEAST`) — both Δz=+1; shared corner wants high from both sides.
+
+**Sculpting residual (not a placement CongruenceError):** corner-column vertical-gap bleeding on spiral layouts — covered by slope Z congruity suite tests.
+
+Suite coverage: exhaustive same-cell bit-pair matrix in `congruence.rs` tests; slope upper-ring patterns and shared-vertex Z congruity in `slopes.rs` tests.
+
 ## Logic fix
 
 Unreal `gatherAvailableLocations` built the solving cell from **`origin`** while the growth loop used **`location`**. Margen gather uses **`location`** (`incorrect-traversal-endpoint`).
