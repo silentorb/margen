@@ -237,8 +237,15 @@ typedef struct MargenRspConstraint {
 	float angle;
 } MargenRspConstraint;
 
-/* Skeletal seed (one level-2 node) fully subdivided to four level-0 leaves. */
-MargenStatus margen_generate_rsp_skeletal(MargenRspGraph **out_handle);
+/*
+ * Skeletal seed: one node at `subdivisions` level (clamped >= 0), fully
+ * subdivided to level-0 leaves. `seed` feeds Dice; leaf count varies with depth
+ * and ternary split forms.
+ */
+MargenStatus margen_generate_rsp_skeletal(
+	int32_t seed,
+	int32_t subdivisions,
+	MargenRspGraph **out_handle);
 void margen_rsp_graph_free(MargenRspGraph *handle);
 
 /*

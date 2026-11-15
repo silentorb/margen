@@ -818,9 +818,9 @@ pub struct MargenRspConstraint {
 	pub angle: f32,
 }
 
-fn rsp_graph_from_skeletal() -> MargenRspGraph {
-	let mut dice = Dice::new(0);
-	let graph = generate_skeletal_rsp(&mut dice);
+fn rsp_graph_from_skeletal(seed: i32, subdivisions: i32) -> MargenRspGraph {
+	let mut dice = Dice::new(seed);
+	let graph = generate_skeletal_rsp(&mut dice, subdivisions);
 	let layout_pairs = layout_rsp_debug_2d(&graph, RSP_DEBUG_LAYOUT_SPACING);
 	let node_ids: Vec<u32> = graph.nodes.keys().map(|id| id.0).collect();
 	let constraints: Vec<MargenRspConstraint> = graph
@@ -843,9 +843,11 @@ fn rsp_graph_from_skeletal() -> MargenRspGraph {
 	}
 }
 
-/// Skeletal RSP graph: one level-2 seed subdivided to four level-0 leaves.
+/// Skeletal RSP graph: one seed at `subdivisions` level, fully subdivided to level 0.
 #[no_mangle]
 pub unsafe extern "C" fn margen_generate_rsp_skeletal(
+	seed: i32,
+	subdivisions: i32,
 	out_handle: *mut *mut MargenRspGraph,
 ) -> MargenStatus {
 	clear_last_error();
@@ -853,7 +855,7 @@ pub unsafe extern "C" fn margen_generate_rsp_skeletal(
 		set_last_error("out_handle is null");
 		return MARGEN_ERR_INVALID_ARGUMENT;
 	}
-	let handle = Box::new(rsp_graph_from_skeletal());
+	let handle = Box::new(rsp_graph_from_skeletal(seed, subdivisions));
 	*out_handle = Box::into_raw(handle);
 	MARGEN_OK
 }
@@ -906,7 +908,7 @@ mod tests {
 	fn ffi_rsp_skeletal_smoke() {
 		unsafe {
 			let mut handle: *mut MargenRspGraph = ptr::null_mut();
-			assert_eq!(margen_generate_rsp_skeletal(&mut handle), MARGEN_OK);
+			assert_eq!(margen_generate_rsp_skeletal(7, 2, &mut handle), MARGEN_OK);
 			assert!(!handle.is_null());
 
 			let mut node_ids: *const u32 = ptr::null();
@@ -927,9 +929,8 @@ mod tests {
 				),
 				MARGEN_OK
 			);
-			assert_eq!(node_count, 4);
-			assert!(constraint_count >= 1);
-			assert_eq!(layout_count, 4);
+			assert!(node_count >= 1);
+			assert_eq!(layout_count, node_count);
 			assert!(!node_ids.is_null());
 			assert!(!constraints.is_null());
 			assert!(!layout.is_null());
@@ -939,6 +940,31 @@ mod tests {
 			}
 
 			margen_rsp_graph_free(handle);
+
+			let mut zero: *mut MargenRspGraph = ptr::null_mut();
+			assert_eq!(margen_generate_rsp_skeletal(0, 0, &mut zero), MARGEN_OK);
+			let mut z_nodes: *const u32 = ptr::null();
+			let mut z_constraints: *const MargenRspConstraint = ptr::null();
+			let mut z_layout: *const MargenVec2 = ptr::null();
+			let mut z_node_count = 0usize;
+			let mut z_constraint_count = 0usize;
+			let mut z_layout_count = 0usize;
+			assert_eq!(
+				margen_rsp_graph_bulk(
+					zero,
+					&mut z_nodes,
+					&mut z_node_count,
+					&mut z_constraints,
+					&mut z_constraint_count,
+					&mut z_layout,
+					&mut z_layout_count,
+				),
+				MARGEN_OK
+			);
+			assert_eq!(z_node_count, 1);
+			assert_eq!(z_constraint_count, 0);
+			assert_eq!(z_layout_count, 1);
+			margen_rsp_graph_free(zero);
 		}
 	}
 
