@@ -2,7 +2,7 @@
 name = "margen_rsp_generation"
 version = "0.1.0"
 edition = "2021"
-description = "Relative Space Partitioning (RSP) generation"
+description = "Relative Space Partitioning (RSP) generation and metric layout"
 license = "MIT OR Apache-2.0"
 
 [dependencies]

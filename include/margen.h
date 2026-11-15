@@ -252,8 +252,9 @@ MargenStatus margen_generate_rsp_skeletal(
 void margen_rsp_graph_free(MargenRspGraph *handle);
 
 /*
- * Bulk node ids (sorted), constraints, and debug layout positions (margen XY,
- * +Y north; parallel to node ids). Pointers valid until margen_rsp_graph_free.
+ * Bulk node ids (sorted), constraints, and metric layout positions (margen XY,
+ * +Y north; parallel to node ids). Layout uses soft angle bands, stretchable
+ * lengths, and hard min-separation. Pointers valid until margen_rsp_graph_free.
  */
 MargenStatus margen_rsp_graph_bulk(
 	const MargenRspGraph *handle,

@@ -15,7 +15,7 @@ use margen_generation_structure::{
 	StoryGridResult, WorldGridConfig,
 };
 use margen_generation_surfacing::{generate_render_faces, RenderFaces, UsedMaterials};
-use margen_rsp_generation::{generate_skeletal_rsp, layout_rsp_debug_2d};
+use margen_rsp_generation::{generate_skeletal_rsp, layout_rsp_metric_2d, RspLayoutConfig};
 use mythic_dice::Dice;
 use mythic_math::{Vector3, Vector3i};
 use std::cell::RefCell;
@@ -801,9 +801,7 @@ pub unsafe extern "C" fn margen_resolve_grid_direction(
 	MARGEN_OK
 }
 
-const RSP_DEBUG_LAYOUT_SPACING: f32 = 120.0;
-
-/// Opaque RSP graph handle (nodes, constraints, debug layout).
+/// Opaque RSP graph handle (nodes, constraints, metric layout).
 pub struct MargenRspGraph {
 	node_ids: Vec<u32>,
 	constraints: Vec<MargenRspConstraint>,
@@ -821,7 +819,7 @@ pub struct MargenRspConstraint {
 fn rsp_graph_from_skeletal(seed: i32, subdivisions: i32, loop_weight: f32) -> MargenRspGraph {
 	let mut dice = Dice::new(seed);
 	let graph = generate_skeletal_rsp(&mut dice, subdivisions, loop_weight);
-	let layout_pairs = layout_rsp_debug_2d(&graph, RSP_DEBUG_LAYOUT_SPACING);
+	let realized = layout_rsp_metric_2d(&graph, &RspLayoutConfig::default());
 	let node_ids: Vec<u32> = graph.nodes.keys().map(|id| id.0).collect();
 	let constraints: Vec<MargenRspConstraint> = graph
 		.constraints
@@ -832,7 +830,8 @@ fn rsp_graph_from_skeletal(seed: i32, subdivisions: i32, loop_weight: f32) -> Ma
 			angle: c.angle,
 		})
 		.collect();
-	let layout: Vec<MargenVec2> = layout_pairs
+	let layout: Vec<MargenVec2> = realized
+		.positions
 		.iter()
 		.map(|(_, p)| MargenVec2 { x: p.x, y: p.y })
 		.collect();
