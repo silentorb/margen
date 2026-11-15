@@ -24,7 +24,8 @@ pub fn generate_skeletal_rsp() -> RspGraph {
 ///
 /// Places an unplaced reference at the origin (or leaves it), then offsets each
 /// unplaced subject by `direction * spacing` from its reference when the
-/// reference is already placed.
+/// reference is already placed. Finally shifts all positions so the bounding-box
+/// center sits at the origin (editor/camera-friendly).
 pub fn layout_rsp_debug_2d(graph: &RspGraph, spacing: f32) -> Vec<(RspNodeId, Vector2)> {
 	let mut positions: BTreeMap<RspNodeId, Vector2> = BTreeMap::new();
 	for &id in &graph.nodes {
@@ -46,6 +47,22 @@ pub fn layout_rsp_debug_2d(graph: &RspGraph, spacing: f32) -> Vec<(RspNodeId, Ve
 		positions
 			.entry(constraint.reference)
 			.or_insert(reference_pos);
+	}
+	if !positions.is_empty() {
+		let mut min_x = f32::INFINITY;
+		let mut max_x = f32::NEG_INFINITY;
+		let mut min_y = f32::INFINITY;
+		let mut max_y = f32::NEG_INFINITY;
+		for pos in positions.values() {
+			min_x = min_x.min(pos.x);
+			max_x = max_x.max(pos.x);
+			min_y = min_y.min(pos.y);
+			max_y = max_y.max(pos.y);
+		}
+		let center = Vector2::new((min_x + max_x) * 0.5, (min_y + max_y) * 0.5);
+		for pos in positions.values_mut() {
+			*pos = Vector2::new(pos.x - center.x, pos.y - center.y);
+		}
 	}
 	graph
 		.nodes
@@ -82,5 +99,8 @@ mod tests {
 		let reference = layout.iter().find(|(id, _)| *id == RspNodeId(1)).unwrap();
 		assert_eq!(subject.1.x, reference.1.x);
 		assert!(subject.1.y > reference.1.y);
+		let mid_y = (subject.1.y + reference.1.y) * 0.5;
+		assert!(mid_y.abs() < 1e-4, "layout should be centered on origin, mid_y={mid_y}");
+		assert!((subject.1.x + reference.1.x).abs() < 1e-4);
 	}
 }
