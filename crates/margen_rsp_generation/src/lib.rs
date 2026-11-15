@@ -1,7 +1,8 @@
 //! Relative Space Partitioning (RSP) generation.
 //!
 //! Skeletal path: seed one high-level node, then subdivide until level 0 using
-//! equal-weight per-level pools of binary / ternary-open / ternary-closed forms.
+//! per-level pools of binary / ternary-open / ternary-closed forms weighted by
+//! [`DEFAULT_LOOP_WEIGHT`] (or a caller-supplied `loop_weight`).
 
 use margen_rsp::{
 	angle_unit, dot2, opposite_angle, RspAngle, RspConstraint, RspGraph, RspNode, RspNodeId,
@@ -11,6 +12,11 @@ use mythic_math::Vector2;
 use std::collections::{BTreeMap, HashSet, VecDeque};
 use std::f32::consts::TAU;
 
+/// Default share of each per-level form pool for [`RspSplitForm::TernaryClosed`].
+///
+/// Double the original equal-share `1/3`. Binary and TernaryOpen split the remainder.
+pub const DEFAULT_LOOP_WEIGHT: f32 = 2.0 / 3.0;
+
 /// Subdivision shape applied to one parent node.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RspSplitForm {
@@ -19,28 +25,62 @@ pub enum RspSplitForm {
 	TernaryClosed,
 }
 
-const EQUAL_WEIGHT_FORMS: [RspSplitForm; 3] = [
+const POOL_FORMS: [RspSplitForm; 3] = [
 	RspSplitForm::Binary,
 	RspSplitForm::TernaryOpen,
 	RspSplitForm::TernaryClosed,
 ];
 
-/// Build a pool of `count` forms with equal weights (counts differ by at most 1),
-/// then shuffle with `dice`. Remainder slots go to forms in [`EQUAL_WEIGHT_FORMS`] order.
-pub fn allocate_split_forms(count: usize, dice: &mut Dice) -> Vec<RspSplitForm> {
+fn clamp_loop_weight(loop_weight: f32) -> f32 {
+	if !loop_weight.is_finite() {
+		return DEFAULT_LOOP_WEIGHT;
+	}
+	loop_weight.clamp(0.0, 1.0)
+}
+
+/// Build a pool of `count` forms from `loop_weight` (TernaryClosed share; Binary and
+/// TernaryOpen each get `(1 - w) / 2`), using largest-remainder integer allocation,
+/// then shuffle with `dice`. Remainder ties break in Binary → TernaryOpen → TernaryClosed order.
+pub fn allocate_split_forms(count: usize, dice: &mut Dice, loop_weight: f32) -> Vec<RspSplitForm> {
 	if count == 0 {
 		return Vec::new();
 	}
-	let n_forms = EQUAL_WEIGHT_FORMS.len();
-	let base = count / n_forms;
-	let rem = count % n_forms;
+	let w_closed = clamp_loop_weight(loop_weight);
+	let w_side = (1.0 - w_closed) * 0.5;
+	let weights = [w_side, w_side, w_closed];
+
+	let mut floors = [0usize; 3];
+	let mut fracs = [0.0f32; 3];
+	let mut assigned = 0usize;
+	for i in 0..3 {
+		let exact = (count as f32) * weights[i];
+		floors[i] = exact.floor() as usize;
+		fracs[i] = exact - floors[i] as f32;
+		assigned += floors[i];
+	}
+	let mut rem = count - assigned;
+	// Prefer strictly larger fractional parts; near-ties keep the lower form index
+	// (Binary → TernaryOpen → TernaryClosed) so equal weights stay stable in f32.
+	const FRAC_TIE_EPS: f32 = 1e-5;
+	while rem > 0 {
+		let mut best = 0usize;
+		for i in 1..3 {
+			if fracs[i] > fracs[best] + FRAC_TIE_EPS {
+				best = i;
+			}
+		}
+		floors[best] += 1;
+		fracs[best] = f32::NEG_INFINITY;
+		rem -= 1;
+	}
+
 	let mut pool = Vec::with_capacity(count);
-	for (i, form) in EQUAL_WEIGHT_FORMS.iter().enumerate() {
-		let extra = if i < rem { 1 } else { 0 };
-		for _ in 0..(base + extra) {
+	for (i, form) in POOL_FORMS.iter().enumerate() {
+		for _ in 0..floors[i] {
 			pool.push(*form);
 		}
 	}
+	debug_assert_eq!(pool.len(), count);
 	shuffle_forms(&mut pool, dice);
 	pool
 }
@@ -53,20 +93,23 @@ fn shuffle_forms(pool: &mut [RspSplitForm], dice: &mut Dice) {
 }
 
 /// One node at `level = subdivisions` (clamped `>= 0`), fully subdivided to level 0.
-pub fn generate_skeletal_rsp(dice: &mut Dice, subdivisions: i32) -> RspGraph {
+///
+/// `loop_weight` is clamped to `[0, 1]` (non-finite → [`DEFAULT_LOOP_WEIGHT`]).
+pub fn generate_skeletal_rsp(dice: &mut Dice, subdivisions: i32, loop_weight: f32) -> RspGraph {
 	let level = subdivisions.max(0);
 	let id = RspNodeId(0);
 	let seed = RspGraph {
 		nodes: BTreeMap::from([(id, RspNode { id, level })]),
 		constraints: Vec::new(),
 	};
-	subdivide_rsp_fully(seed, dice)
+	subdivide_rsp_fully(seed, dice, clamp_loop_weight(loop_weight))
 }
 
 /// Repeatedly run [`subdivide_rsp_pass`] until every node has `level == 0`.
-pub fn subdivide_rsp_fully(mut graph: RspGraph, dice: &mut Dice) -> RspGraph {
+pub fn subdivide_rsp_fully(mut graph: RspGraph, dice: &mut Dice, loop_weight: f32) -> RspGraph {
+	let loop_weight = clamp_loop_weight(loop_weight);
 	while graph.nodes.values().any(|node| node.level > 0) {
-		graph = subdivide_rsp_pass(&graph, dice);
+		graph = subdivide_rsp_pass(&graph, dice, loop_weight);
 	}
 	graph
 }
@@ -85,10 +128,11 @@ struct Split {
 
 /// One subdivision pass: every node with `level > 0` is replaced by children.
 ///
-/// Forms are allocated from equal-weight per-level pools (not independent rolls).
+/// Forms are allocated from `loop_weight`-weighted per-level pools (not independent rolls).
 /// Parent connections are inherited by the **nearest** child only (max dot product
 /// of child offset against the parent→other direction).
-pub fn subdivide_rsp_pass(graph: &RspGraph, dice: &mut Dice) -> RspGraph {
+pub fn subdivide_rsp_pass(graph: &RspGraph, dice: &mut Dice, loop_weight: f32) -> RspGraph {
+	let loop_weight = clamp_loop_weight(loop_weight);
 	let mut parents_by_level: BTreeMap<i32, Vec<RspNodeId>> = BTreeMap::new();
 	for node in graph.nodes.values() {
 		if node.level > 0 {
@@ -117,7 +161,7 @@ pub fn subdivide_rsp_pass(graph: &RspGraph, dice: &mut Dice) -> RspGraph {
 
 	let mut splits: BTreeMap<RspNodeId, Split> = BTreeMap::new();
 	for parents in parents_by_level.values() {
-		let forms = allocate_split_forms(parents.len(), dice);
+		let forms = allocate_split_forms(parents.len(), dice, loop_weight);
 		for (parent_id, form) in parents.iter().zip(forms.into_iter()) {
 			let split = materialize_split(*parent_id, form, &mut next_id, dice);
 			splits.insert(*parent_id, split);
@@ -368,21 +412,26 @@ mod tests {
 	use margen_rsp::opposite_angle;
 	use std::f32::consts::FRAC_PI_2;
 
+	fn count_forms(pool: &[RspSplitForm]) -> [usize; 3] {
+		let mut counts = [0usize; 3];
+		for form in pool {
+			let idx = match form {
+				RspSplitForm::Binary => 0,
+				RspSplitForm::TernaryOpen => 1,
+				RspSplitForm::TernaryClosed => 2,
+			};
+			counts[idx] += 1;
+		}
+		counts
+	}
+
 	#[test]
-	fn allocate_split_forms_equal_weights() {
+	fn allocate_split_forms_equal_third_is_balanced() {
 		for n in 0..=6 {
 			let mut dice = Dice::new(7);
-			let pool = allocate_split_forms(n, &mut dice);
+			let pool = allocate_split_forms(n, &mut dice, 1.0 / 3.0);
 			assert_eq!(pool.len(), n);
-			let mut counts = [0usize; 3];
-			for form in &pool {
-				let idx = match form {
-					RspSplitForm::Binary => 0,
-					RspSplitForm::TernaryOpen => 1,
-					RspSplitForm::TernaryClosed => 2,
-				};
-				counts[idx] += 1;
-			}
+			let counts = count_forms(&pool);
 			if n > 0 {
 				let min = *counts.iter().min().unwrap();
 				let max = *counts.iter().max().unwrap();
@@ -392,20 +441,30 @@ mod tests {
 	}
 
 	#[test]
-	fn allocate_split_forms_remainder_order() {
+	fn allocate_split_forms_equal_third_remainder_to_binary() {
 		let mut dice = Dice::new(0);
-		// Consume shuffle draws by copying the unshuffled expectation via a fresh pool
-		// built the same way then verifying counts for N=4: 2,1,1 in form order base.
-		let pool = allocate_split_forms(4, &mut dice);
-		let mut counts = [0usize; 3];
-		for form in &pool {
-			match form {
-				RspSplitForm::Binary => counts[0] += 1,
-				RspSplitForm::TernaryOpen => counts[1] += 1,
-				RspSplitForm::TernaryClosed => counts[2] += 1,
-			}
-		}
-		assert_eq!(counts, [2, 1, 1]);
+		// N=4 with equal thirds: floors 1,1,1 then largest-remainder tie → Binary.
+		let pool = allocate_split_forms(4, &mut dice, 1.0 / 3.0);
+		assert_eq!(count_forms(&pool), [2, 1, 1]);
+	}
+
+	#[test]
+	fn allocate_split_forms_default_loop_weight_n6() {
+		let mut dice = Dice::new(0);
+		let pool = allocate_split_forms(6, &mut dice, DEFAULT_LOOP_WEIGHT);
+		assert_eq!(count_forms(&pool), [1, 1, 4]);
+	}
+
+	#[test]
+	fn allocate_split_forms_extremes() {
+		let mut dice = Dice::new(1);
+		let none = allocate_split_forms(5, &mut dice, 0.0);
+		assert_eq!(count_forms(&none)[2], 0);
+		assert_eq!(count_forms(&none)[0] + count_forms(&none)[1], 5);
+
+		let mut dice = Dice::new(1);
+		let all = allocate_split_forms(5, &mut dice, 1.0);
+		assert_eq!(count_forms(&all), [0, 0, 5]);
 	}
 
 	#[test]
@@ -456,7 +515,7 @@ mod tests {
 	#[test]
 	fn skeletal_subdivisions_zero_is_single_leaf() {
 		let mut dice = Dice::new(0);
-		let graph = generate_skeletal_rsp(&mut dice, 0);
+		let graph = generate_skeletal_rsp(&mut dice, 0, DEFAULT_LOOP_WEIGHT);
 		assert_eq!(graph.nodes.len(), 1);
 		assert!(graph.nodes.values().all(|node| node.level == 0));
 		assert!(graph.constraints.is_empty());
@@ -465,7 +524,7 @@ mod tests {
 	#[test]
 	fn skeletal_graph_subdivides_to_level_zero() {
 		let mut dice = Dice::new(0);
-		let graph = generate_skeletal_rsp(&mut dice, 2);
+		let graph = generate_skeletal_rsp(&mut dice, 2, DEFAULT_LOOP_WEIGHT);
 		assert!(graph.nodes.values().all(|node| node.level == 0));
 		assert!(!graph.nodes.is_empty());
 		for constraint in &graph.constraints {
@@ -491,11 +550,11 @@ mod tests {
 			}],
 		};
 
-		// With one parent, equal-weight pool of size 1 is Binary (first form).
+		// Equal thirds + N=1 → Binary (largest-remainder tie breaks to first form).
 		let mut dice = Dice::new(1);
 		let split_angle = dice.get_float_range(0.0, TAU);
 		let mut dice = Dice::new(1);
-		let out = subdivide_rsp_pass(&graph, &mut dice);
+		let out = subdivide_rsp_pass(&graph, &mut dice, 1.0 / 3.0);
 
 		assert_eq!(out.nodes.len(), 3);
 		assert!(out.nodes.contains_key(&other));

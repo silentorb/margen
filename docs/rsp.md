@@ -28,7 +28,7 @@ An `RspConstraint` means **subject lies at `angle` relative to reference**. Conn
 
 ## Subdivision forms
 
-Each parent with `level > 0` is replaced by children at `level - 1` using one of three forms (equal weight for now):
+Each parent with `level > 0` is replaced by children at `level - 1` using one of three forms:
 
 | Form | Children | Sibling edges |
 |------|----------|---------------|
@@ -38,7 +38,14 @@ Each parent with `level > 0` is replaced by children at `level - 1` using one of
 
 ### Per-level form pools
 
-Forms are **not** rolled independently per parent. At the start of each pass, parents are grouped by `level`. For each group of size `N`, a pool of `N` forms is built with equal weights (counts differ by at most one; remainder goes to forms in Binary → TernaryOpen → TernaryClosed order), shuffled, and assigned one-to-one to that group’s parents.
+Forms are **not** rolled independently per parent. At the start of each pass, parents are grouped by `level`. For each group of size `N`, a pool of `N` forms is built from **`loop_weight`** ∈ `[0, 1]`:
+
+- **Ternary closed** share = `loop_weight`
+- **Binary** and **Ternary open** each get `(1 - loop_weight) / 2`
+
+Integer slot counts use largest-remainder (Hamilton) allocation; remainder ties break in Binary → TernaryOpen → TernaryClosed order. The pool is then shuffled and assigned one-to-one to that group’s parents.
+
+Default `loop_weight` is **`2/3`** (`DEFAULT_LOOP_WEIGHT`) — double the original equal-share `1/3`. Hosts such as `MargenRspGraphView` expose this as an inspector property.
 
 ### Inheritance
 
@@ -46,14 +53,14 @@ When a parent is replaced, each of its connections is inherited by **only the ne
 
 ## Skeletal generator
 
-`generate_skeletal_rsp(dice, subdivisions)` seeds one node (`id = 0`, `level = subdivisions.max(0)`), then fully subdivides until all nodes are level 0. Leaf count depends on depth and how many ternary splits appear. Absolute placement is not part of the graph; the C ABI also exports a trivial **debug layout** (`MargenVec2` per node) for editor drawing only (spanning-tree placement so cycles do not thrash positions).
+`generate_skeletal_rsp(dice, subdivisions, loop_weight)` seeds one node (`id = 0`, `level = subdivisions.max(0)`), then fully subdivides until all nodes are level 0. Leaf count depends on depth and how many ternary splits appear. Absolute placement is not part of the graph; the C ABI also exports a trivial **debug layout** (`MargenVec2` per node) for editor drawing only (spanning-tree placement so cycles do not thrash positions).
 
 ## C ABI
 
-- `margen_generate_rsp_skeletal(seed, subdivisions, out_handle)` → opaque `MargenRspGraph`
+- `margen_generate_rsp_skeletal(seed, subdivisions, loop_weight, out_handle)` → opaque `MargenRspGraph`
 - Bulk node ids, constraints (`float angle`), and debug layout positions
 - Free with `margen_rsp_graph_free`
 
 ## Out of scope (for now)
 
-Absolute metric realization, configurable form weights / inspector UI for weights, connect-all / distance-similarity inheritance thresholds, 3D angles, and replacing the hex/`MargenWorldMesh` pipeline.
+Absolute metric realization, separate Binary vs TernaryOpen weight knobs, connect-all / distance-similarity inheritance thresholds, 3D angles, and replacing the hex/`MargenWorldMesh` pipeline.

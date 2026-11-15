@@ -818,9 +818,9 @@ pub struct MargenRspConstraint {
 	pub angle: f32,
 }
 
-fn rsp_graph_from_skeletal(seed: i32, subdivisions: i32) -> MargenRspGraph {
+fn rsp_graph_from_skeletal(seed: i32, subdivisions: i32, loop_weight: f32) -> MargenRspGraph {
 	let mut dice = Dice::new(seed);
-	let graph = generate_skeletal_rsp(&mut dice, subdivisions);
+	let graph = generate_skeletal_rsp(&mut dice, subdivisions, loop_weight);
 	let layout_pairs = layout_rsp_debug_2d(&graph, RSP_DEBUG_LAYOUT_SPACING);
 	let node_ids: Vec<u32> = graph.nodes.keys().map(|id| id.0).collect();
 	let constraints: Vec<MargenRspConstraint> = graph
@@ -844,10 +844,13 @@ fn rsp_graph_from_skeletal(seed: i32, subdivisions: i32) -> MargenRspGraph {
 }
 
 /// Skeletal RSP graph: one seed at `subdivisions` level, fully subdivided to level 0.
+///
+/// `loop_weight` is the TernaryClosed pool share in `[0, 1]` (see `DEFAULT_LOOP_WEIGHT`).
 #[no_mangle]
 pub unsafe extern "C" fn margen_generate_rsp_skeletal(
 	seed: i32,
 	subdivisions: i32,
+	loop_weight: f32,
 	out_handle: *mut *mut MargenRspGraph,
 ) -> MargenStatus {
 	clear_last_error();
@@ -855,7 +858,7 @@ pub unsafe extern "C" fn margen_generate_rsp_skeletal(
 		set_last_error("out_handle is null");
 		return MARGEN_ERR_INVALID_ARGUMENT;
 	}
-	let handle = Box::new(rsp_graph_from_skeletal(seed, subdivisions));
+	let handle = Box::new(rsp_graph_from_skeletal(seed, subdivisions, loop_weight));
 	*out_handle = Box::into_raw(handle);
 	MARGEN_OK
 }
@@ -908,7 +911,10 @@ mod tests {
 	fn ffi_rsp_skeletal_smoke() {
 		unsafe {
 			let mut handle: *mut MargenRspGraph = ptr::null_mut();
-			assert_eq!(margen_generate_rsp_skeletal(7, 2, &mut handle), MARGEN_OK);
+			assert_eq!(
+				margen_generate_rsp_skeletal(7, 2, 2.0 / 3.0, &mut handle),
+				MARGEN_OK
+			);
 			assert!(!handle.is_null());
 
 			let mut node_ids: *const u32 = ptr::null();
@@ -942,7 +948,10 @@ mod tests {
 			margen_rsp_graph_free(handle);
 
 			let mut zero: *mut MargenRspGraph = ptr::null_mut();
-			assert_eq!(margen_generate_rsp_skeletal(0, 0, &mut zero), MARGEN_OK);
+			assert_eq!(
+				margen_generate_rsp_skeletal(0, 0, 2.0 / 3.0, &mut zero),
+				MARGEN_OK
+			);
 			let mut z_nodes: *const u32 = ptr::null();
 			let mut z_constraints: *const MargenRspConstraint = ptr::null();
 			let mut z_layout: *const MargenVec2 = ptr::null();

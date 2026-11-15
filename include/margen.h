@@ -240,11 +240,14 @@ typedef struct MargenRspConstraint {
 /*
  * Skeletal seed: one node at `subdivisions` level (clamped >= 0), fully
  * subdivided to level-0 leaves. `seed` feeds Dice; leaf count varies with depth
- * and ternary split forms.
+ * and ternary split forms. `loop_weight` in [0, 1] is the TernaryClosed share of
+ * each per-level form pool (default hosts use 2/3); Binary and TernaryOpen split
+ * the remainder equally. Non-finite values fall back to 2/3 inside the generator.
  */
 MargenStatus margen_generate_rsp_skeletal(
 	int32_t seed,
 	int32_t subdivisions,
+	float loop_weight,
 	MargenRspGraph **out_handle);
 void margen_rsp_graph_free(MargenRspGraph *handle);
 
