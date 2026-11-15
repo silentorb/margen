@@ -15,6 +15,7 @@ use margen_generation_structure::{
 	StoryGridResult, WorldGridConfig,
 };
 use margen_generation_surfacing::{generate_render_faces, RenderFaces, UsedMaterials};
+use margen_rsp_generation::{generate_skeletal_rsp, layout_rsp_debug_2d};
 use mythic_dice::Dice;
 use mythic_math::{Vector3, Vector3i};
 use std::cell::RefCell;
@@ -800,9 +801,151 @@ pub unsafe extern "C" fn margen_resolve_grid_direction(
 	MARGEN_OK
 }
 
+const RSP_DEBUG_LAYOUT_SPACING: f32 = 120.0;
+
+/// Opaque RSP graph handle (nodes, constraints, debug layout).
+pub struct MargenRspGraph {
+	node_ids: Vec<u32>,
+	constraints: Vec<MargenRspConstraint>,
+	layout: Vec<MargenVec2>,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct MargenRspConstraint {
+	pub subject: u32,
+	pub reference: u32,
+	pub direction: MargenIVec3,
+}
+
+fn rsp_graph_from_skeletal() -> MargenRspGraph {
+	let graph = generate_skeletal_rsp();
+	let layout_pairs = layout_rsp_debug_2d(&graph, RSP_DEBUG_LAYOUT_SPACING);
+	let node_ids: Vec<u32> = graph.nodes.iter().map(|id| id.0).collect();
+	let constraints: Vec<MargenRspConstraint> = graph
+		.constraints
+		.iter()
+		.map(|c| MargenRspConstraint {
+			subject: c.subject.0,
+			reference: c.reference.0,
+			direction: MargenIVec3 {
+				x: c.direction.x,
+				y: c.direction.y,
+				z: c.direction.z,
+			},
+		})
+		.collect();
+	let layout: Vec<MargenVec2> = layout_pairs
+		.iter()
+		.map(|(_, p)| MargenVec2 { x: p.x, y: p.y })
+		.collect();
+	MargenRspGraph {
+		node_ids,
+		constraints,
+		layout,
+	}
+}
+
+/// Skeletal two-node RSP graph with one North constraint.
+#[no_mangle]
+pub unsafe extern "C" fn margen_generate_rsp_skeletal(
+	out_handle: *mut *mut MargenRspGraph,
+) -> MargenStatus {
+	clear_last_error();
+	if out_handle.is_null() {
+		set_last_error("out_handle is null");
+		return MARGEN_ERR_INVALID_ARGUMENT;
+	}
+	let handle = Box::new(rsp_graph_from_skeletal());
+	*out_handle = Box::into_raw(handle);
+	MARGEN_OK
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn margen_rsp_graph_free(handle: *mut MargenRspGraph) {
+	if handle.is_null() {
+		return;
+	}
+	drop(Box::from_raw(handle));
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn margen_rsp_graph_bulk(
+	handle: *const MargenRspGraph,
+	out_node_ids: *mut *const u32,
+	out_node_count: *mut usize,
+	out_constraints: *mut *const MargenRspConstraint,
+	out_constraint_count: *mut usize,
+	out_layout: *mut *const MargenVec2,
+	out_layout_count: *mut usize,
+) -> MargenStatus {
+	clear_last_error();
+	if handle.is_null()
+		|| out_node_ids.is_null()
+		|| out_node_count.is_null()
+		|| out_constraints.is_null()
+		|| out_constraint_count.is_null()
+		|| out_layout.is_null()
+		|| out_layout_count.is_null()
+	{
+		set_last_error("null pointer in margen_rsp_graph_bulk");
+		return MARGEN_ERR_INVALID_ARGUMENT;
+	}
+	let graph = &*handle;
+	*out_node_ids = graph.node_ids.as_ptr();
+	*out_node_count = graph.node_ids.len();
+	*out_constraints = graph.constraints.as_ptr();
+	*out_constraint_count = graph.constraints.len();
+	*out_layout = graph.layout.as_ptr();
+	*out_layout_count = graph.layout.len();
+	MARGEN_OK
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn ffi_rsp_skeletal_smoke() {
+		unsafe {
+			let mut handle: *mut MargenRspGraph = ptr::null_mut();
+			assert_eq!(margen_generate_rsp_skeletal(&mut handle), MARGEN_OK);
+			assert!(!handle.is_null());
+
+			let mut node_ids: *const u32 = ptr::null();
+			let mut constraints: *const MargenRspConstraint = ptr::null();
+			let mut layout: *const MargenVec2 = ptr::null();
+			let mut node_count = 0usize;
+			let mut constraint_count = 0usize;
+			let mut layout_count = 0usize;
+			assert_eq!(
+				margen_rsp_graph_bulk(
+					handle,
+					&mut node_ids,
+					&mut node_count,
+					&mut constraints,
+					&mut constraint_count,
+					&mut layout,
+					&mut layout_count,
+				),
+				MARGEN_OK
+			);
+			assert_eq!(node_count, 2);
+			assert_eq!(constraint_count, 1);
+			assert_eq!(layout_count, 2);
+			assert!(!node_ids.is_null());
+			assert!(!constraints.is_null());
+			assert!(!layout.is_null());
+			let c = *constraints;
+			assert_eq!(c.subject, 0);
+			assert_eq!(c.reference, 1);
+			assert_eq!(c.direction.x, 0);
+			assert_eq!(c.direction.y, 1);
+			assert_eq!(c.direction.z, 0);
+
+			margen_rsp_graph_free(handle);
+		}
+	}
 
 	#[test]
 	fn ffi_story_grid_smoke() {

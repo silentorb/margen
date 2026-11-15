@@ -1,0 +1,9 @@
+[package]
+name = "margen_rsp"
+version = "0.1.0"
+edition = "2021"
+description = "Relative Space Partitioning (RSP) core model"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+mythic_math = { path = "../mythic_math" }

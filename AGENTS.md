@@ -10,6 +10,7 @@ The workspace is **many small crates**. Unreal **modules** map to Cargo **crates
 |------|--------|------|
 | **Mythic utilities** | `mythic_math`, `mythic_dice`, `mythic_distribution` | Vectors, RNG, shuffle/select. From Unreal Mythic / MythicSimulation feature areas—not world-gen. |
 | **Generation** | `margen_generation`, `margen_generation_graphing`, `margen_generation_structure`, `margen_generation_graphing_analysis`, `margen_generation_population`, `margen_generation_surfacing` | UE Generation* modules, one crate each (DAG enforced by Cargo). |
+| **RSP (experimental)** | `margen_rsp`, `margen_rsp_generation` | Relative Space Partitioning model + generators (parallel to hex pipeline). See [`docs/rsp.md`](docs/rsp.md). |
 | **C ABI** | `margen_ffi` | `cdylib` / `staticlib`; header [`include/margen.h`](include/margen.h). |
 
 Godot integration: sibling repo **margen-godot** (GDExtension calling the C ABI). Game-specific generation glue for Marloth belongs in the **marloth** Godot repo (likely C#) when needed—not here early.
@@ -20,6 +21,7 @@ Godot integration: sibling repo **margen-godot** (GDExtension calling the C ABI)
 |------|---------|
 | [`crates/mythic_*/`](crates/) | Focused Mythic utility crates |
 | [`crates/margen_generation*/`](crates/) | Generation pipeline crates |
+| [`crates/margen_rsp*`](crates/) | Experimental RSP model + generation |
 | [`crates/margen_ffi/`](crates/margen_ffi/) | C ABI |
 | [`include/margen.h`](include/margen.h) | Hand-written C header |
 | [`docs/`](docs/) | Design / port docs |

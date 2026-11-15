@@ -10,5 +10,7 @@ members = [
     "crates/margen_generation_graphing_analysis",
     "crates/margen_generation_population",
     "crates/margen_generation_surfacing",
+    "crates/margen_rsp",
+    "crates/margen_rsp_generation",
     "crates/margen_ffi",
 ]

@@ -34,6 +34,8 @@ dependencies = [
  "margen_generation_population",
  "margen_generation_structure",
  "margen_generation_surfacing",
+ "margen_rsp",
+ "margen_rsp_generation",
  "mythic_dice",
  "mythic_math",
 ]
@@ -91,6 +93,21 @@ version = "0.1.0"
 dependencies = [
  "margen_generation",
  "mythic_dice",
+ "mythic_math",
+]
+
+[[package]]
+name = "margen_rsp"
+version = "0.1.0"
+dependencies = [
+ "mythic_math",
+]
+
+[[package]]
+name = "margen_rsp_generation"
+version = "0.1.0"
+dependencies = [
+ "margen_rsp",
  "mythic_math",
 ]
 

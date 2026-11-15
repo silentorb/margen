@@ -10,6 +10,7 @@ extern "C" {
 
 typedef struct MargenStoryGrid MargenStoryGrid;
 typedef struct MargenWorldFaces MargenWorldFaces;
+typedef struct MargenRspGraph MargenRspGraph;
 
 typedef int MargenStatus;
 
@@ -223,6 +224,52 @@ MargenStatus margen_resolve_default_cell_corners(
 MargenStatus margen_resolve_grid_direction(
 	int32_t direction,
 	MargenIVec3 *out_offset);
+
+/* --- Relative Space Partitioning (RSP); parallel to hex pipeline --- */
+
+/* RH Z-up cardinal direction vectors (compare component-wise). */
+#define MARGEN_RSP_DIR_NORTH_X 0
+#define MARGEN_RSP_DIR_NORTH_Y 1
+#define MARGEN_RSP_DIR_NORTH_Z 0
+#define MARGEN_RSP_DIR_SOUTH_X 0
+#define MARGEN_RSP_DIR_SOUTH_Y (-1)
+#define MARGEN_RSP_DIR_SOUTH_Z 0
+#define MARGEN_RSP_DIR_EAST_X 1
+#define MARGEN_RSP_DIR_EAST_Y 0
+#define MARGEN_RSP_DIR_EAST_Z 0
+#define MARGEN_RSP_DIR_WEST_X (-1)
+#define MARGEN_RSP_DIR_WEST_Y 0
+#define MARGEN_RSP_DIR_WEST_Z 0
+/* Reserved for later 3D generation; hosts may label if present. */
+#define MARGEN_RSP_DIR_UP_X 0
+#define MARGEN_RSP_DIR_UP_Y 0
+#define MARGEN_RSP_DIR_UP_Z 1
+#define MARGEN_RSP_DIR_DOWN_X 0
+#define MARGEN_RSP_DIR_DOWN_Y 0
+#define MARGEN_RSP_DIR_DOWN_Z (-1)
+
+typedef struct MargenRspConstraint {
+	uint32_t subject;
+	uint32_t reference;
+	MargenIVec3 direction;
+} MargenRspConstraint;
+
+/* Skeletal two-node graph with one North constraint. */
+MargenStatus margen_generate_rsp_skeletal(MargenRspGraph **out_handle);
+void margen_rsp_graph_free(MargenRspGraph *handle);
+
+/*
+ * Bulk node ids (sorted), constraints, and debug layout positions (margen XY,
+ * +Y north; parallel to node ids). Pointers valid until margen_rsp_graph_free.
+ */
+MargenStatus margen_rsp_graph_bulk(
+	const MargenRspGraph *handle,
+	const uint32_t **out_node_ids,
+	size_t *out_node_count,
+	const MargenRspConstraint **out_constraints,
+	size_t *out_constraint_count,
+	const MargenVec2 **out_layout,
+	size_t *out_layout_count);
 
 #ifdef __cplusplus
 }
