@@ -108,6 +108,7 @@ name = "margen_rsp_generation"
 version = "0.1.0"
 dependencies = [
  "margen_rsp",
+ "mythic_dice",
  "mythic_math",
 ]
 

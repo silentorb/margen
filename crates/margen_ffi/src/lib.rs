@@ -815,24 +815,21 @@ pub struct MargenRspGraph {
 pub struct MargenRspConstraint {
 	pub subject: u32,
 	pub reference: u32,
-	pub direction: MargenIVec3,
+	pub angle: f32,
 }
 
 fn rsp_graph_from_skeletal() -> MargenRspGraph {
-	let graph = generate_skeletal_rsp();
+	let mut dice = Dice::new(0);
+	let graph = generate_skeletal_rsp(&mut dice);
 	let layout_pairs = layout_rsp_debug_2d(&graph, RSP_DEBUG_LAYOUT_SPACING);
-	let node_ids: Vec<u32> = graph.nodes.iter().map(|id| id.0).collect();
+	let node_ids: Vec<u32> = graph.nodes.keys().map(|id| id.0).collect();
 	let constraints: Vec<MargenRspConstraint> = graph
 		.constraints
 		.iter()
 		.map(|c| MargenRspConstraint {
 			subject: c.subject.0,
 			reference: c.reference.0,
-			direction: MargenIVec3 {
-				x: c.direction.x,
-				y: c.direction.y,
-				z: c.direction.z,
-			},
+			angle: c.angle,
 		})
 		.collect();
 	let layout: Vec<MargenVec2> = layout_pairs
@@ -846,7 +843,7 @@ fn rsp_graph_from_skeletal() -> MargenRspGraph {
 	}
 }
 
-/// Skeletal two-node RSP graph with one North constraint.
+/// Skeletal RSP graph: one level-2 seed subdivided to four level-0 leaves.
 #[no_mangle]
 pub unsafe extern "C" fn margen_generate_rsp_skeletal(
 	out_handle: *mut *mut MargenRspGraph,
@@ -930,18 +927,16 @@ mod tests {
 				),
 				MARGEN_OK
 			);
-			assert_eq!(node_count, 2);
-			assert_eq!(constraint_count, 1);
-			assert_eq!(layout_count, 2);
+			assert_eq!(node_count, 4);
+			assert!(constraint_count >= 1);
+			assert_eq!(layout_count, 4);
 			assert!(!node_ids.is_null());
 			assert!(!constraints.is_null());
 			assert!(!layout.is_null());
-			let c = *constraints;
-			assert_eq!(c.subject, 0);
-			assert_eq!(c.reference, 1);
-			assert_eq!(c.direction.x, 0);
-			assert_eq!(c.direction.y, 1);
-			assert_eq!(c.direction.z, 0);
+			for i in 0..constraint_count {
+				let c = *constraints.add(i);
+				assert!(c.angle.is_finite());
+			}
 
 			margen_rsp_graph_free(handle);
 		}

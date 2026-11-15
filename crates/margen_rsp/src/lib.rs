@@ -1,94 +1,97 @@
 //! Relative Space Partitioning (RSP) core model.
 //!
-//! Directions are RH Z-up integer vectors. Generators may stay planar (`z == 0`)
-//! while the type remains ready for Up/Down and arbitrary non-cardinal vectors.
+//! Constraints are 2D angles in margen XY (RH Z-up planar): radians with
+//! **0 = +X east**, **π/2 = +Y north**. Node `level` is remaining subdivisions
+//! (bottom = 0).
 
-use mythic_math::Vector3i;
-use std::collections::BTreeSet;
+use mythic_math::Vector2;
+use std::collections::BTreeMap;
+use std::f32::consts::PI;
 
 /// Stable node identifier within an [`RspGraph`].
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct RspNodeId(pub u32);
 
-/// Relative direction as a 3D integer vector (RH Z-up).
-pub type RspDirection = Vector3i;
+/// Planar direction as radians in margen XY (0 = east / +X, π/2 = north / +Y).
+pub type RspAngle = f32;
 
-/// +Y north (forward).
-pub const NORTH: RspDirection = Vector3i { x: 0, y: 1, z: 0 };
-/// -Y south.
-pub const SOUTH: RspDirection = Vector3i { x: 0, y: -1, z: 0 };
-/// +X east.
-pub const EAST: RspDirection = Vector3i { x: 1, y: 0, z: 0 };
-/// -X west.
-pub const WEST: RspDirection = Vector3i { x: -1, y: 0, z: 0 };
-/// +Z up (defined for forward compatibility; planar generators must not emit it yet).
-pub const UP: RspDirection = Vector3i { x: 0, y: 0, z: 1 };
-/// -Z down (defined for forward compatibility; planar generators must not emit it yet).
-pub const DOWN: RspDirection = Vector3i { x: 0, y: 0, z: -1 };
-
-/// Subject lies in `direction` relative to `reference`.
+/// Node with subdivision level (remaining splits until 0).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct RspNode {
+	pub id: RspNodeId,
+	pub level: i32,
+}
+
+/// Subject lies at `angle` relative to `reference`.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RspConstraint {
 	pub subject: RspNodeId,
-	pub direction: RspDirection,
+	pub angle: RspAngle,
 	pub reference: RspNodeId,
 }
 
 /// Relative constraint graph (no absolute placement).
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct RspGraph {
-	pub nodes: BTreeSet<RspNodeId>,
+	pub nodes: BTreeMap<RspNodeId, RspNode>,
 	pub constraints: Vec<RspConstraint>,
 }
 
-/// Component-wise negate (works for Up/Down as well as planar cardinals).
-pub fn opposite(direction: RspDirection) -> RspDirection {
-	Vector3i {
-		x: -direction.x,
-		y: -direction.y,
-		z: -direction.z,
-	}
+/// Opposite planar direction (`angle + π`).
+pub fn opposite_angle(angle: RspAngle) -> RspAngle {
+	angle + PI
 }
 
-/// True when the direction has no vertical component.
-pub fn is_planar(direction: RspDirection) -> bool {
-	direction.z == 0
+/// Unit vector in margen XY for `angle` (0 = +X, π/2 = +Y).
+pub fn angle_unit(angle: RspAngle) -> Vector2 {
+	Vector2::new(angle.cos(), angle.sin())
+}
+
+/// Dot product of two planar vectors.
+pub fn dot2(a: Vector2, b: Vector2) -> f32 {
+	a.x * b.x + a.y * b.y
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use std::f32::consts::{FRAC_PI_2, PI};
 
 	#[test]
-	fn opposite_swaps_north_south() {
-		assert_eq!(opposite(NORTH), SOUTH);
-		assert_eq!(opposite(SOUTH), NORTH);
-		assert_eq!(opposite(EAST), WEST);
-		assert_eq!(opposite(UP), DOWN);
+	fn opposite_angle_adds_pi() {
+		assert!((opposite_angle(0.0) - PI).abs() < 1e-5);
+		assert!((opposite_angle(FRAC_PI_2) - (FRAC_PI_2 + PI)).abs() < 1e-5);
 	}
 
 	#[test]
-	fn planar_cardinals_have_zero_z() {
-		assert!(is_planar(NORTH));
-		assert!(is_planar(EAST));
-		assert!(!is_planar(UP));
+	fn angle_unit_cardinal_axes() {
+		let east = angle_unit(0.0);
+		assert!((east.x - 1.0).abs() < 1e-5);
+		assert!(east.y.abs() < 1e-5);
+		let north = angle_unit(FRAC_PI_2);
+		assert!(north.x.abs() < 1e-5);
+		assert!((north.y - 1.0).abs() < 1e-5);
 	}
 
 	#[test]
-	fn two_node_north_constraint_round_trip() {
+	fn graph_level_and_angle_round_trip() {
 		let a = RspNodeId(0);
 		let b = RspNodeId(1);
 		let graph = RspGraph {
-			nodes: BTreeSet::from([a, b]),
+			nodes: BTreeMap::from([
+				(a, RspNode { id: a, level: 2 }),
+				(b, RspNode { id: b, level: 0 }),
+			]),
 			constraints: vec![RspConstraint {
 				subject: a,
-				direction: NORTH,
+				angle: FRAC_PI_2,
 				reference: b,
 			}],
 		};
 		assert_eq!(graph.nodes.len(), 2);
+		assert_eq!(graph.nodes.get(&a).unwrap().level, 2);
 		assert_eq!(graph.constraints.len(), 1);
-		assert_eq!(graph.constraints[0].direction, NORTH);
+		assert!((graph.constraints[0].angle - FRAC_PI_2).abs() < 1e-5);
 		assert_eq!(graph.constraints[0].subject, a);
 		assert_eq!(graph.constraints[0].reference, b);
 	}

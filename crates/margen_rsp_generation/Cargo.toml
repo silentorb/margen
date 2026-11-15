@@ -7,4 +7,5 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 margen_rsp = { path = "../margen_rsp" }
+mythic_dice = { path = "../mythic_dice" }
 mythic_math = { path = "../mythic_math" }
