@@ -5,7 +5,8 @@
 //! [`DEFAULT_LOOP_WEIGHT`] (or a caller-supplied `loop_weight`).
 
 use margen_rsp::{
-	angle_unit, dot2, opposite_angle, RspAngle, RspConstraint, RspGraph, RspNode, RspNodeId,
+	angle_unit, dot2, opposite_angle, RspAngle, RspConstraint, RspGraph, RspHistory, RspNode,
+	RspNodeId,
 };
 use mythic_dice::Dice;
 use mythic_math::Vector2;
@@ -94,24 +95,33 @@ fn shuffle_forms(pool: &mut [RspSplitForm], dice: &mut Dice) {
 
 /// One node at `level = subdivisions` (clamped `>= 0`), fully subdivided to level 0.
 ///
+/// Returns an [`RspHistory`] whose first layer is the seed and whose last layer is leaves.
 /// `loop_weight` is clamped to `[0, 1]` (non-finite → [`DEFAULT_LOOP_WEIGHT`]).
-pub fn generate_skeletal_rsp(dice: &mut Dice, subdivisions: i32, loop_weight: f32) -> RspGraph {
+pub fn generate_skeletal_rsp(dice: &mut Dice, subdivisions: i32, loop_weight: f32) -> RspHistory {
 	let level = subdivisions.max(0);
 	let id = RspNodeId(0);
 	let seed = RspGraph {
-		nodes: BTreeMap::from([(id, RspNode { id, level })]),
+		nodes: BTreeMap::from([(id, RspNode {
+			id,
+			level,
+			parent: None,
+		})]),
 		constraints: Vec::new(),
 	};
 	subdivide_rsp_fully(seed, dice, clamp_loop_weight(loop_weight))
 }
 
 /// Repeatedly run [`subdivide_rsp_pass`] until every node has `level == 0`.
-pub fn subdivide_rsp_fully(mut graph: RspGraph, dice: &mut Dice, loop_weight: f32) -> RspGraph {
+///
+/// Layer `[0]` is the input graph; each subsequent layer is the result of one pass.
+pub fn subdivide_rsp_fully(mut graph: RspGraph, dice: &mut Dice, loop_weight: f32) -> RspHistory {
 	let loop_weight = clamp_loop_weight(loop_weight);
+	let mut layers = vec![graph.clone()];
 	while graph.nodes.values().any(|node| node.level > 0) {
 		graph = subdivide_rsp_pass(&graph, dice, loop_weight);
+		layers.push(graph.clone());
 	}
-	graph
+	RspHistory { layers }
 }
 
 /// One child of a split, with local unit offset from the parent midpoint.
@@ -185,6 +195,7 @@ pub fn subdivide_rsp_pass(graph: &RspGraph, dice: &mut Dice, loop_weight: f32) -
 					RspNode {
 						id: child.id,
 						level: child_level,
+						parent: Some(node.id),
 					},
 				);
 			}
@@ -858,22 +869,40 @@ mod tests {
 	#[test]
 	fn skeletal_subdivisions_zero_is_single_leaf() {
 		let mut dice = Dice::new(0);
-		let graph = generate_skeletal_rsp(&mut dice, 0, DEFAULT_LOOP_WEIGHT);
+		let history = generate_skeletal_rsp(&mut dice, 0, DEFAULT_LOOP_WEIGHT);
+		assert_eq!(history.layers.len(), 1);
+		let graph = history.final_graph();
 		assert_eq!(graph.nodes.len(), 1);
 		assert!(graph.nodes.values().all(|node| node.level == 0));
+		assert!(graph.nodes.values().all(|node| node.parent.is_none()));
 		assert!(graph.constraints.is_empty());
 	}
 
 	#[test]
 	fn skeletal_graph_subdivides_to_level_zero() {
 		let mut dice = Dice::new(0);
-		let graph = generate_skeletal_rsp(&mut dice, 2, DEFAULT_LOOP_WEIGHT);
+		let history = generate_skeletal_rsp(&mut dice, 2, DEFAULT_LOOP_WEIGHT);
+		assert_eq!(history.layers.len(), 3);
+		let graph = history.final_graph();
 		assert!(graph.nodes.values().all(|node| node.level == 0));
 		assert!(!graph.nodes.is_empty());
 		for constraint in &graph.constraints {
 			assert!(constraint.angle.is_finite());
 			assert!(graph.nodes.contains_key(&constraint.subject));
 			assert!(graph.nodes.contains_key(&constraint.reference));
+		}
+		for (i, layer) in history.layers.iter().enumerate().skip(1) {
+			let prev = &history.layers[i - 1];
+			for node in layer.nodes.values() {
+				let Some(parent) = node.parent else {
+					panic!("non-root leaf ancestry missing at layer {i}");
+				};
+				assert!(
+					prev.nodes.contains_key(&parent),
+					"parent {parent:?} missing from previous layer"
+				);
+				assert!(!layer.nodes.contains_key(&parent));
+			}
 		}
 	}
 
@@ -883,8 +912,16 @@ mod tests {
 		let other = RspNodeId(1);
 		let graph = RspGraph {
 			nodes: BTreeMap::from([
-				(parent, RspNode { id: parent, level: 1 }),
-				(other, RspNode { id: other, level: 0 }),
+				(parent, RspNode {
+					id: parent,
+					level: 1,
+					parent: None,
+				}),
+				(other, RspNode {
+					id: other,
+					level: 0,
+					parent: None,
+				}),
 			]),
 			constraints: vec![RspConstraint {
 				subject: parent,
@@ -902,6 +939,12 @@ mod tests {
 		assert_eq!(out.nodes.len(), 3);
 		assert!(out.nodes.contains_key(&other));
 		assert!(!out.nodes.contains_key(&parent));
+		assert_eq!(out.nodes.get(&other).unwrap().parent, None);
+		for node in out.nodes.values() {
+			if node.id != other {
+				assert_eq!(node.parent, Some(parent));
+			}
+		}
 
 		let inherited: Vec<_> = out
 			.constraints
@@ -1041,8 +1084,12 @@ mod tests {
 		let reference = RspNodeId(1);
 		let graph = RspGraph {
 			nodes: BTreeMap::from([
-				(subject, RspNode { id: subject, level: 0 }),
-				(reference, RspNode { id: reference, level: 0 }),
+				(subject, RspNode { id: subject, level: 0,
+					parent: None,
+				}),
+				(reference, RspNode { id: reference, level: 0,
+					parent: None,
+				}),
 			]),
 			constraints: vec![RspConstraint {
 				subject,
@@ -1067,9 +1114,15 @@ mod tests {
 		let c = RspNodeId(2);
 		let graph = RspGraph {
 			nodes: BTreeMap::from([
-				(a, RspNode { id: a, level: 0 }),
-				(b, RspNode { id: b, level: 0 }),
-				(c, RspNode { id: c, level: 0 }),
+				(a, RspNode { id: a, level: 0,
+					parent: None,
+				}),
+				(b, RspNode { id: b, level: 0,
+					parent: None,
+				}),
+				(c, RspNode { id: c, level: 0,
+					parent: None,
+				}),
 			]),
 			constraints: vec![
 				RspConstraint {
@@ -1116,9 +1169,15 @@ mod tests {
 		let c = RspNodeId(2);
 		RspGraph {
 			nodes: BTreeMap::from([
-				(a, RspNode { id: a, level: 0 }),
-				(b, RspNode { id: b, level: 0 }),
-				(c, RspNode { id: c, level: 0 }),
+				(a, RspNode { id: a, level: 0,
+					parent: None,
+				}),
+				(b, RspNode { id: b, level: 0,
+					parent: None,
+				}),
+				(c, RspNode { id: c, level: 0,
+					parent: None,
+				}),
 			]),
 			constraints: vec![
 				RspConstraint {
@@ -1146,8 +1205,12 @@ mod tests {
 		let reference = RspNodeId(1);
 		let graph = RspGraph {
 			nodes: BTreeMap::from([
-				(subject, RspNode { id: subject, level: 0 }),
-				(reference, RspNode { id: reference, level: 0 }),
+				(subject, RspNode { id: subject, level: 0,
+					parent: None,
+				}),
+				(reference, RspNode { id: reference, level: 0,
+					parent: None,
+				}),
 			]),
 			constraints: vec![RspConstraint {
 				subject,
@@ -1189,7 +1252,7 @@ mod tests {
 	#[test]
 	fn metric_layout_skeletal_seed0_sub4_loop06_min_separation() {
 		let mut dice = Dice::new(0);
-		let graph = generate_skeletal_rsp(&mut dice, 4, 0.6);
+		let graph = generate_skeletal_rsp(&mut dice, 4, 0.6).final_graph().clone();
 		let config = RspLayoutConfig::default();
 		let layout = layout_rsp_metric_2d(&graph, &config);
 		assert!(!layout.positions.is_empty());

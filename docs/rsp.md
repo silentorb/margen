@@ -15,6 +15,20 @@ Neither crate depends on `margen_generation*`. Hosts consume results through `ma
 
 Each node has an integer `level`: remaining subdivisions until the bottom (**0**). Greater values are coarser / higher level. The skeletal generator’s `subdivisions` argument sets the seed node’s level (default hosts use **2**).
 
+Each node also stores an optional immediate `parent` id: the node it replaced during a split (`None` for the seed / roots). Parents are removed from the active graph after a pass but remain available via ancestry and history.
+
+## Subdivision history
+
+`generate_skeletal_rsp` / `subdivide_rsp_fully` return an [`RspHistory`](crates/margen_rsp/src/lib.rs) whose `layers` vector keeps a full graph snapshot per stage:
+
+| Index | Contents |
+|-------|----------|
+| `[0]` | Pre-subdivision input (seed for skeletal) |
+| `[1..]` | Graph after each subdivision pass |
+| last | Level-0 leaves used for layout / FFI |
+
+Later pipeline steps can read coarser layers; hosts that only need the final graph use `history.final_graph()`.
+
 ## Angle model (2D)
 
 Constraint directions are planar **radians** in margen XY (RH Z-up):
@@ -55,7 +69,7 @@ The inherited **angle is recomputed** from a local parent-edge embedding (refere
 
 ## Skeletal generator
 
-`generate_skeletal_rsp(dice, subdivisions, loop_weight)` seeds one node (`id = 0`, `level = subdivisions.max(0)`), then fully subdivides until all nodes are level 0. Leaf count depends on depth and how many ternary splits appear. Absolute positions are **not** stored on the graph.
+`generate_skeletal_rsp(dice, subdivisions, loop_weight)` seeds one node (`id = 0`, `level = subdivisions.max(0)`, `parent = None`), then fully subdivides until all nodes are level 0, returning the full [`RspHistory`](#subdivision-history). Leaf count depends on depth and how many ternary splits appear. Absolute positions are **not** stored on the graph.
 
 ## Metric layout
 
@@ -71,9 +85,10 @@ Defaults match the historical preview spacing (`preferred_edge_length = 120`). T
 
 ## C ABI
 
-- `margen_generate_rsp_skeletal(seed, subdivisions, loop_weight, out_handle)` → opaque `MargenRspGraph`
-- Bulk node ids, constraints (`float angle`), and metric layout positions
+- `margen_generate_rsp_skeletal(seed, subdivisions, loop_weight, out_handle)` → opaque `MargenRspGraph` (final layer only)
+- Bulk node ids, immediate parent ids (parallel; `UINT32_MAX` = no parent), constraints (`float angle`), and metric layout positions
 - Free with `margen_rsp_graph_free`
+- Full layer stacks are not exported over the ABI yet
 
 ## Out of scope (for now)
 

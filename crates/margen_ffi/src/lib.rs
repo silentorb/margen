@@ -801,9 +801,11 @@ pub unsafe extern "C" fn margen_resolve_grid_direction(
 	MARGEN_OK
 }
 
-/// Opaque RSP graph handle (nodes, constraints, metric layout).
+/// Opaque RSP graph handle (nodes, parents, constraints, metric layout).
 pub struct MargenRspGraph {
 	node_ids: Vec<u32>,
+	/// Parallel to `node_ids`; `u32::MAX` means no parent (root / seed).
+	parent_ids: Vec<u32>,
 	constraints: Vec<MargenRspConstraint>,
 	layout: Vec<MargenVec2>,
 }
@@ -816,11 +818,19 @@ pub struct MargenRspConstraint {
 	pub angle: f32,
 }
 
+const RSP_NO_PARENT: u32 = u32::MAX;
+
 fn rsp_graph_from_skeletal(seed: i32, subdivisions: i32, loop_weight: f32) -> MargenRspGraph {
 	let mut dice = Dice::new(seed);
-	let graph = generate_skeletal_rsp(&mut dice, subdivisions, loop_weight);
-	let realized = layout_rsp_metric_2d(&graph, &RspLayoutConfig::default());
+	let history = generate_skeletal_rsp(&mut dice, subdivisions, loop_weight);
+	let graph = history.final_graph();
+	let realized = layout_rsp_metric_2d(graph, &RspLayoutConfig::default());
 	let node_ids: Vec<u32> = graph.nodes.keys().map(|id| id.0).collect();
+	let parent_ids: Vec<u32> = graph
+		.nodes
+		.values()
+		.map(|node| node.parent.map(|id| id.0).unwrap_or(RSP_NO_PARENT))
+		.collect();
 	let constraints: Vec<MargenRspConstraint> = graph
 		.constraints
 		.iter()
@@ -837,6 +847,7 @@ fn rsp_graph_from_skeletal(seed: i32, subdivisions: i32, loop_weight: f32) -> Ma
 		.collect();
 	MargenRspGraph {
 		node_ids,
+		parent_ids,
 		constraints,
 		layout,
 	}
@@ -874,6 +885,7 @@ pub unsafe extern "C" fn margen_rsp_graph_free(handle: *mut MargenRspGraph) {
 pub unsafe extern "C" fn margen_rsp_graph_bulk(
 	handle: *const MargenRspGraph,
 	out_node_ids: *mut *const u32,
+	out_parent_ids: *mut *const u32,
 	out_node_count: *mut usize,
 	out_constraints: *mut *const MargenRspConstraint,
 	out_constraint_count: *mut usize,
@@ -883,6 +895,7 @@ pub unsafe extern "C" fn margen_rsp_graph_bulk(
 	clear_last_error();
 	if handle.is_null()
 		|| out_node_ids.is_null()
+		|| out_parent_ids.is_null()
 		|| out_node_count.is_null()
 		|| out_constraints.is_null()
 		|| out_constraint_count.is_null()
@@ -894,6 +907,7 @@ pub unsafe extern "C" fn margen_rsp_graph_bulk(
 	}
 	let graph = &*handle;
 	*out_node_ids = graph.node_ids.as_ptr();
+	*out_parent_ids = graph.parent_ids.as_ptr();
 	*out_node_count = graph.node_ids.len();
 	*out_constraints = graph.constraints.as_ptr();
 	*out_constraint_count = graph.constraints.len();
@@ -917,6 +931,7 @@ mod tests {
 			assert!(!handle.is_null());
 
 			let mut node_ids: *const u32 = ptr::null();
+			let mut parent_ids: *const u32 = ptr::null();
 			let mut constraints: *const MargenRspConstraint = ptr::null();
 			let mut layout: *const MargenVec2 = ptr::null();
 			let mut node_count = 0usize;
@@ -926,6 +941,7 @@ mod tests {
 				margen_rsp_graph_bulk(
 					handle,
 					&mut node_ids,
+					&mut parent_ids,
 					&mut node_count,
 					&mut constraints,
 					&mut constraint_count,
@@ -937,8 +953,13 @@ mod tests {
 			assert!(node_count >= 1);
 			assert_eq!(layout_count, node_count);
 			assert!(!node_ids.is_null());
+			assert!(!parent_ids.is_null());
 			assert!(!constraints.is_null());
 			assert!(!layout.is_null());
+			for i in 0..node_count {
+				let parent = *parent_ids.add(i);
+				assert_ne!(parent, RSP_NO_PARENT, "subdivided leaves should have parents");
+			}
 			for i in 0..constraint_count {
 				let c = *constraints.add(i);
 				assert!(c.angle.is_finite());
@@ -952,6 +973,7 @@ mod tests {
 				MARGEN_OK
 			);
 			let mut z_nodes: *const u32 = ptr::null();
+			let mut z_parents: *const u32 = ptr::null();
 			let mut z_constraints: *const MargenRspConstraint = ptr::null();
 			let mut z_layout: *const MargenVec2 = ptr::null();
 			let mut z_node_count = 0usize;
@@ -961,6 +983,7 @@ mod tests {
 				margen_rsp_graph_bulk(
 					zero,
 					&mut z_nodes,
+					&mut z_parents,
 					&mut z_node_count,
 					&mut z_constraints,
 					&mut z_constraint_count,
@@ -972,6 +995,7 @@ mod tests {
 			assert_eq!(z_node_count, 1);
 			assert_eq!(z_constraint_count, 0);
 			assert_eq!(z_layout_count, 1);
+			assert_eq!(*z_parents, RSP_NO_PARENT);
 			margen_rsp_graph_free(zero);
 		}
 	}

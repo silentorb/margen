@@ -16,10 +16,13 @@ pub struct RspNodeId(pub u32);
 pub type RspAngle = f32;
 
 /// Node with subdivision level (remaining splits until 0).
+///
+/// `parent` is the immediate node this one replaced during subdivision (`None` for roots).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct RspNode {
 	pub id: RspNodeId,
 	pub level: i32,
+	pub parent: Option<RspNodeId>,
 }
 
 /// Subject lies at `angle` relative to `reference`.
@@ -35,6 +38,21 @@ pub struct RspConstraint {
 pub struct RspGraph {
 	pub nodes: BTreeMap<RspNodeId, RspNode>,
 	pub constraints: Vec<RspConstraint>,
+}
+
+/// Subdivision snapshots: `[0]` is the pre-subdivision input, then one graph after each pass.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct RspHistory {
+	pub layers: Vec<RspGraph>,
+}
+
+impl RspHistory {
+	/// Final (leaf) graph after all subdivision passes.
+	pub fn final_graph(&self) -> &RspGraph {
+		self.layers
+			.last()
+			.expect("RspHistory must contain at least one layer")
+	}
 }
 
 /// Opposite planar direction (`angle + π`).
@@ -79,8 +97,16 @@ mod tests {
 		let b = RspNodeId(1);
 		let graph = RspGraph {
 			nodes: BTreeMap::from([
-				(a, RspNode { id: a, level: 2 }),
-				(b, RspNode { id: b, level: 0 }),
+				(a, RspNode {
+					id: a,
+					level: 2,
+					parent: None,
+				}),
+				(b, RspNode {
+					id: b,
+					level: 0,
+					parent: None,
+				}),
 			]),
 			constraints: vec![RspConstraint {
 				subject: a,
