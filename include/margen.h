@@ -254,8 +254,9 @@ void margen_rsp_graph_free(MargenRspGraph *handle);
 /*
  * Bulk node ids (sorted), immediate parent ids (parallel to node ids;
  * UINT32_MAX = no parent / root), constraints, and metric layout positions
- * (margen XY, +Y north; parallel to node ids). Layout uses soft angle bands,
- * stretchable lengths, and hard min-separation. Pointers valid until
+ * (margen XY, +Y north; parallel to node ids). Layout relaxes each point with
+ * soft angle bands and stretchable lengths while keeping it strictly inside its
+ * node's cell (see margen_rsp_graph_geometry). Pointers valid until
  * margen_rsp_graph_free.
  */
 MargenStatus margen_rsp_graph_bulk(
@@ -267,6 +268,24 @@ MargenStatus margen_rsp_graph_bulk(
 	size_t *out_constraint_count,
 	const MargenVec2 **out_layout,
 	size_t *out_layout_count);
+
+/*
+ * Partition geometry (same margen XY space as the layout):
+ * - doorways: parallel to constraints; each edge is drawn
+ *   subject -> doorway -> reference, which never overlaps another edge.
+ * - cells: parallel to node ids; convex counter-clockwise polygons with disjoint
+ *   interiors, read as cell_vertices[cell_offsets[i] .. + cell_counts[i]].
+ * Pointers valid until margen_rsp_graph_free.
+ */
+MargenStatus margen_rsp_graph_geometry(
+	const MargenRspGraph *handle,
+	const MargenVec2 **out_doorways,
+	size_t *out_doorway_count,
+	const uint32_t **out_cell_offsets,
+	const uint32_t **out_cell_counts,
+	size_t *out_cell_count,
+	const MargenVec2 **out_cell_vertices,
+	size_t *out_cell_vertex_count);
 
 #ifdef __cplusplus
 }

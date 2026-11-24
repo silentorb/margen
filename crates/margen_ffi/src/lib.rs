@@ -15,7 +15,10 @@ use margen_generation_structure::{
 	StoryGridResult, WorldGridConfig,
 };
 use margen_generation_surfacing::{generate_render_faces, RenderFaces, UsedMaterials};
-use margen_rsp_generation::{generate_skeletal_rsp, layout_rsp_metric_2d, RspLayoutConfig};
+use margen_rsp::RspPoint;
+use margen_rsp_generation::{
+	generate_skeletal_rsp, layout_rsp_metric_2d, validate_rsp_embedding, RspLayoutConfig,
+};
 use mythic_dice::Dice;
 use mythic_math::{Vector3, Vector3i};
 use std::cell::RefCell;
@@ -801,13 +804,26 @@ pub unsafe extern "C" fn margen_resolve_grid_direction(
 	MARGEN_OK
 }
 
-/// Opaque RSP graph handle (nodes, parents, constraints, metric layout).
+/// Opaque RSP graph handle (nodes, parents, constraints, metric layout, partition geometry).
 pub struct MargenRspGraph {
 	node_ids: Vec<u32>,
 	/// Parallel to `node_ids`; `u32::MAX` means no parent (root / seed).
 	parent_ids: Vec<u32>,
 	constraints: Vec<MargenRspConstraint>,
 	layout: Vec<MargenVec2>,
+	/// Parallel to `constraints`: point on the wall shared by the two endpoint cells.
+	doorways: Vec<MargenVec2>,
+	/// Parallel to `node_ids`: start index and vertex count into `cell_vertices`.
+	cell_offsets: Vec<u32>,
+	cell_counts: Vec<u32>,
+	cell_vertices: Vec<MargenVec2>,
+}
+
+fn rsp_vec2(p: RspPoint) -> MargenVec2 {
+	MargenVec2 {
+		x: p.x as f32,
+		y: p.y as f32,
+	}
 }
 
 #[repr(C)]
@@ -823,8 +839,10 @@ const RSP_NO_PARENT: u32 = u32::MAX;
 fn rsp_graph_from_skeletal(seed: i32, subdivisions: i32, loop_weight: f32) -> MargenRspGraph {
 	let mut dice = Dice::new(seed);
 	let history = generate_skeletal_rsp(&mut dice, subdivisions, loop_weight);
-	let graph = history.final_graph();
-	let realized = layout_rsp_metric_2d(graph, &RspLayoutConfig::default());
+	let realized = layout_rsp_metric_2d(history.final_layer(), &RspLayoutConfig::default());
+	debug_assert_eq!(validate_rsp_embedding(&realized.layer), Ok(()));
+	let graph = &realized.layer.graph;
+	let partition = &realized.layer.partition;
 	let node_ids: Vec<u32> = graph.nodes.keys().map(|id| id.0).collect();
 	let parent_ids: Vec<u32> = graph
 		.nodes
@@ -840,16 +858,30 @@ fn rsp_graph_from_skeletal(seed: i32, subdivisions: i32, loop_weight: f32) -> Ma
 			angle: c.angle,
 		})
 		.collect();
-	let layout: Vec<MargenVec2> = realized
-		.positions
-		.iter()
-		.map(|(_, p)| MargenVec2 { x: p.x, y: p.y })
+	let layout: Vec<MargenVec2> = graph
+		.nodes
+		.keys()
+		.map(|id| rsp_vec2(partition.points[id]))
 		.collect();
+	let doorways: Vec<MargenVec2> = partition.doorways.iter().map(|d| rsp_vec2(*d)).collect();
+	let mut cell_offsets = Vec::with_capacity(node_ids.len());
+	let mut cell_counts = Vec::with_capacity(node_ids.len());
+	let mut cell_vertices = Vec::new();
+	for id in graph.nodes.keys() {
+		let cell = &partition.cells[id];
+		cell_offsets.push(cell_vertices.len() as u32);
+		cell_counts.push(cell.vertices.len() as u32);
+		cell_vertices.extend(cell.vertices.iter().map(|v| rsp_vec2(*v)));
+	}
 	MargenRspGraph {
 		node_ids,
 		parent_ids,
 		constraints,
 		layout,
+		doorways,
+		cell_offsets,
+		cell_counts,
+		cell_vertices,
 	}
 }
 
@@ -916,6 +948,45 @@ pub unsafe extern "C" fn margen_rsp_graph_bulk(
 	MARGEN_OK
 }
 
+/// Partition geometry for an RSP graph: one doorway per constraint, one convex cell per node.
+///
+/// Edges are drawn `subject → doorway → reference`; cells are counter-clockwise polygons
+/// addressed by `cell_offsets[i]` / `cell_counts[i]` into `cell_vertices` (parallel to node ids).
+#[no_mangle]
+pub unsafe extern "C" fn margen_rsp_graph_geometry(
+	handle: *const MargenRspGraph,
+	out_doorways: *mut *const MargenVec2,
+	out_doorway_count: *mut usize,
+	out_cell_offsets: *mut *const u32,
+	out_cell_counts: *mut *const u32,
+	out_cell_count: *mut usize,
+	out_cell_vertices: *mut *const MargenVec2,
+	out_cell_vertex_count: *mut usize,
+) -> MargenStatus {
+	clear_last_error();
+	if handle.is_null()
+		|| out_doorways.is_null()
+		|| out_doorway_count.is_null()
+		|| out_cell_offsets.is_null()
+		|| out_cell_counts.is_null()
+		|| out_cell_count.is_null()
+		|| out_cell_vertices.is_null()
+		|| out_cell_vertex_count.is_null()
+	{
+		set_last_error("null pointer in margen_rsp_graph_geometry");
+		return MARGEN_ERR_INVALID_ARGUMENT;
+	}
+	let graph = &*handle;
+	*out_doorways = graph.doorways.as_ptr();
+	*out_doorway_count = graph.doorways.len();
+	*out_cell_offsets = graph.cell_offsets.as_ptr();
+	*out_cell_counts = graph.cell_counts.as_ptr();
+	*out_cell_count = graph.cell_offsets.len();
+	*out_cell_vertices = graph.cell_vertices.as_ptr();
+	*out_cell_vertex_count = graph.cell_vertices.len();
+	MARGEN_OK
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -964,6 +1035,38 @@ mod tests {
 				let c = *constraints.add(i);
 				assert!(c.angle.is_finite());
 			}
+
+			let mut doorways: *const MargenVec2 = ptr::null();
+			let mut doorway_count = 0usize;
+			let mut cell_offsets: *const u32 = ptr::null();
+			let mut cell_counts: *const u32 = ptr::null();
+			let mut cell_count = 0usize;
+			let mut cell_vertices: *const MargenVec2 = ptr::null();
+			let mut cell_vertex_count = 0usize;
+			assert_eq!(
+				margen_rsp_graph_geometry(
+					handle,
+					&mut doorways,
+					&mut doorway_count,
+					&mut cell_offsets,
+					&mut cell_counts,
+					&mut cell_count,
+					&mut cell_vertices,
+					&mut cell_vertex_count,
+				),
+				MARGEN_OK
+			);
+			assert_eq!(doorway_count, constraint_count);
+			assert_eq!(cell_count, node_count);
+			let mut expected_offset = 0u32;
+			for i in 0..cell_count {
+				assert_eq!(*cell_offsets.add(i), expected_offset);
+				let count = *cell_counts.add(i);
+				assert!(count >= 3, "cells are polygons");
+				expected_offset += count;
+			}
+			assert_eq!(expected_offset as usize, cell_vertex_count);
+			assert!(!cell_vertices.is_null());
 
 			margen_rsp_graph_free(handle);
 
