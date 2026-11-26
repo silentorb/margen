@@ -8,8 +8,9 @@ Experimental parallel path beside the hex-grid generation pipeline. Intent comes
 |-------|------|
 | `margen_rsp` | Core model: nodes with levels, radian angles, constraints, graph, partition (cells / points / doorways) |
 | `margen_rsp_generation` | Generators (skeletal seed + cell-partition subdivision + contained metric layout + embedding validator) |
+| `margen_rsp_skinning` | Floor slabs: rooms and pathways fitted into the partition with margins, plus a per-piece skinner seam ([rsp-skinning.md](rsp-skinning.md)) |
 
-Neither crate depends on `margen_generation*`. Hosts consume results through `margen_ffi` / `include/margen.h`.
+None of these crates depends on `margen_generation*`. Hosts consume results through `margen_ffi` / `include/margen.h`.
 
 ## Levels
 
@@ -138,6 +139,7 @@ Defaults: `preferred_edge_length = 120`, `min_separation = 60` (preview markers 
 - Debug builds assert `validate_rsp_embedding` on the realized layer before export
 - Free with `margen_rsp_graph_free`
 - Full layer stacks are not exported over the ABI yet
+- Skinned slabs: `margen_generate_rsp_skin` and friends ([rsp-skinning.md](rsp-skinning.md#c-abi))
 
 ## Out of scope (for now)
 

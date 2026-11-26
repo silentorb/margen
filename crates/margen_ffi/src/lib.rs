@@ -16,6 +16,9 @@ use margen_generation_structure::{
 };
 use margen_generation_surfacing::{generate_render_faces, RenderFaces, UsedMaterials};
 use margen_rsp::RspPoint;
+use margen_rsp_skinning::{
+	sanitize_config, skin_rsp_layer, validate_floor_plan, RspPieceKind, RspSkinConfig, RspSkinError,
+};
 use margen_rsp_generation::{
 	generate_skeletal_rsp, layout_rsp_metric_2d, validate_rsp_embedding, RspLayoutConfig,
 };
@@ -987,6 +990,229 @@ pub unsafe extern "C" fn margen_rsp_graph_geometry(
 	MARGEN_OK
 }
 
+/// Skinning parameters (layout units). Values that are not finite and positive fall back
+/// to the defaults; `target_sides` below 3 falls back to the default.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct MargenRspSkinConfig {
+	pub pathway_width: f32,
+	pub gap: f32,
+	pub room_min_radius: f32,
+	pub room_preferred_radius: f32,
+	pub floor_thickness: f32,
+	pub angular_gap: f32,
+	pub target_sides: i32,
+}
+
+/// Triangle range of one floor piece. `kind` is [`MARGEN_RSP_PIECE_ROOM`] (`id` = node id)
+/// or [`MARGEN_RSP_PIECE_PATHWAY`] (`id` = constraint index, `node` = the room it leaves).
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct MargenRspSkinPiece {
+	pub kind: u32,
+	pub id: u32,
+	pub node: u32,
+	pub index_begin: u32,
+	pub index_count: u32,
+}
+
+pub const MARGEN_RSP_PIECE_ROOM: u32 = 0;
+pub const MARGEN_RSP_PIECE_PATHWAY: u32 = 1;
+
+/// Opaque skinned RSP handle: slab mesh plus room circles.
+pub struct MargenRspSkin {
+	positions: Vec<MargenVec3>,
+	normals: Vec<MargenVec3>,
+	indices: Vec<u32>,
+	pieces: Vec<MargenRspSkinPiece>,
+	room_nodes: Vec<u32>,
+	room_centers: Vec<MargenVec2>,
+	room_radii: Vec<f32>,
+	scale: f32,
+}
+
+fn skin_config_from_ffi(config: Option<&MargenRspSkinConfig>) -> RspSkinConfig {
+	let defaults = RspSkinConfig::default();
+	let Some(c) = config else {
+		return defaults;
+	};
+	sanitize_config(&RspSkinConfig {
+		pathway_width: c.pathway_width,
+		gap: c.gap,
+		room_min_radius: c.room_min_radius,
+		room_preferred_radius: c.room_preferred_radius,
+		floor_thickness: c.floor_thickness,
+		target_sides: if c.target_sides >= 3 {
+			c.target_sides as u32
+		} else {
+			defaults.target_sides
+		},
+		angular_gap: c.angular_gap,
+	})
+}
+
+fn rsp_skin_from_skeletal(
+	seed: i32,
+	subdivisions: i32,
+	loop_weight: f32,
+	config: &RspSkinConfig,
+) -> Result<MargenRspSkin, RspSkinError> {
+	let mut dice = Dice::new(seed);
+	let history = generate_skeletal_rsp(&mut dice, subdivisions, loop_weight);
+	let realized = layout_rsp_metric_2d(history.final_layer(), &RspLayoutConfig::default());
+	let (plan, mesh) = skin_rsp_layer(&realized.layer, config)?;
+	debug_assert_eq!(validate_floor_plan(&plan), Ok(()));
+	debug_assert_eq!(validate_rsp_embedding(&plan.layer), Ok(()));
+	let vec3 = |v: &Vector3| MargenVec3 {
+		x: v.x,
+		y: v.y,
+		z: v.z,
+	};
+	let pieces = mesh
+		.pieces
+		.iter()
+		.map(|piece| {
+			let (kind, id, node) = match piece.kind {
+				RspPieceKind::Room(node) => (MARGEN_RSP_PIECE_ROOM, node.0, node.0),
+				RspPieceKind::Pathway { constraint, node } => {
+					(MARGEN_RSP_PIECE_PATHWAY, constraint as u32, node.0)
+				}
+			};
+			MargenRspSkinPiece {
+				kind,
+				id,
+				node,
+				index_begin: piece.index_begin,
+				index_count: piece.index_count,
+			}
+		})
+		.collect();
+	Ok(MargenRspSkin {
+		positions: mesh.positions.iter().map(vec3).collect(),
+		normals: mesh.normals.iter().map(vec3).collect(),
+		indices: mesh.indices,
+		pieces,
+		room_nodes: plan.rooms.iter().map(|r| r.node.0).collect(),
+		room_centers: plan.rooms.iter().map(|r| rsp_vec2(r.center)).collect(),
+		room_radii: plan.rooms.iter().map(|r| r.radius as f32).collect(),
+		scale: plan.scale as f32,
+	})
+}
+
+/// Skinned skeletal RSP: same graph and layout as `margen_generate_rsp_skeletal`, turned into
+/// floor slabs. `config` may be NULL for defaults. Fails with
+/// `MARGEN_ERR_GENERATION_FAILED` (see `margen_last_error`) when no fitting scale exists.
+#[no_mangle]
+pub unsafe extern "C" fn margen_generate_rsp_skin(
+	seed: i32,
+	subdivisions: i32,
+	loop_weight: f32,
+	config: *const MargenRspSkinConfig,
+	out_handle: *mut *mut MargenRspSkin,
+) -> MargenStatus {
+	clear_last_error();
+	if out_handle.is_null() {
+		set_last_error("out_handle is null");
+		return MARGEN_ERR_INVALID_ARGUMENT;
+	}
+	*out_handle = ptr::null_mut();
+	let config = skin_config_from_ffi(config.as_ref());
+	match rsp_skin_from_skeletal(seed, subdivisions, loop_weight, &config) {
+		Ok(skin) => {
+			*out_handle = Box::into_raw(Box::new(skin));
+			MARGEN_OK
+		}
+		Err(error) => {
+			set_last_error(&format!("RSP skinning failed: {error:?}"));
+			MARGEN_ERR_GENERATION_FAILED
+		}
+	}
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn margen_rsp_skin_free(handle: *mut MargenRspSkin) {
+	if handle.is_null() {
+		return;
+	}
+	drop(Box::from_raw(handle));
+}
+
+/// Slab mesh in margen XYZ (Z up; floor tops at z = 0). Flat shaded: `normals` is parallel
+/// to `positions`; triangles are counter-clockwise seen from outside. Pointers valid until
+/// `margen_rsp_skin_free`.
+#[no_mangle]
+pub unsafe extern "C" fn margen_rsp_skin_mesh(
+	handle: *const MargenRspSkin,
+	out_positions: *mut *const MargenVec3,
+	out_normals: *mut *const MargenVec3,
+	out_vertex_count: *mut usize,
+	out_indices: *mut *const u32,
+	out_index_count: *mut usize,
+	out_pieces: *mut *const MargenRspSkinPiece,
+	out_piece_count: *mut usize,
+) -> MargenStatus {
+	clear_last_error();
+	if handle.is_null()
+		|| out_positions.is_null()
+		|| out_normals.is_null()
+		|| out_vertex_count.is_null()
+		|| out_indices.is_null()
+		|| out_index_count.is_null()
+		|| out_pieces.is_null()
+		|| out_piece_count.is_null()
+	{
+		set_last_error("null pointer in margen_rsp_skin_mesh");
+		return MARGEN_ERR_INVALID_ARGUMENT;
+	}
+	let skin = &*handle;
+	*out_positions = skin.positions.as_ptr();
+	*out_normals = skin.normals.as_ptr();
+	*out_vertex_count = skin.positions.len();
+	*out_indices = skin.indices.as_ptr();
+	*out_index_count = skin.indices.len();
+	*out_pieces = skin.pieces.as_ptr();
+	*out_piece_count = skin.pieces.len();
+	MARGEN_OK
+}
+
+/// Room circles (margen XY, same space as the mesh), sorted by node id. Pointers valid
+/// until `margen_rsp_skin_free`.
+#[no_mangle]
+pub unsafe extern "C" fn margen_rsp_skin_rooms(
+	handle: *const MargenRspSkin,
+	out_node_ids: *mut *const u32,
+	out_centers: *mut *const MargenVec2,
+	out_radii: *mut *const f32,
+	out_room_count: *mut usize,
+) -> MargenStatus {
+	clear_last_error();
+	if handle.is_null()
+		|| out_node_ids.is_null()
+		|| out_centers.is_null()
+		|| out_radii.is_null()
+		|| out_room_count.is_null()
+	{
+		set_last_error("null pointer in margen_rsp_skin_rooms");
+		return MARGEN_ERR_INVALID_ARGUMENT;
+	}
+	let skin = &*handle;
+	*out_node_ids = skin.room_nodes.as_ptr();
+	*out_centers = skin.room_centers.as_ptr();
+	*out_radii = skin.room_radii.as_ptr();
+	*out_room_count = skin.room_nodes.len();
+	MARGEN_OK
+}
+
+/// Uniform scale the skinning applied to the layout (1 when the layout already had room).
+/// Returns 0 for a NULL handle.
+#[no_mangle]
+pub unsafe extern "C" fn margen_rsp_skin_scale(handle: *const MargenRspSkin) -> f32 {
+	if handle.is_null() {
+		return 0.0;
+	}
+	(*handle).scale
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -1361,6 +1587,92 @@ mod tests {
 			let status = margen_generate_world_faces(1, 0, &mut handle);
 			assert_eq!(status, MARGEN_ERR_INVALID_ARGUMENT);
 			assert!(handle.is_null());
+		}
+	}
+
+	#[test]
+	fn ffi_rsp_skin_smoke() {
+		unsafe {
+			let mut handle: *mut MargenRspSkin = ptr::null_mut();
+			assert_eq!(
+				margen_generate_rsp_skin(7, 3, 2.0 / 3.0, ptr::null(), &mut handle),
+				MARGEN_OK
+			);
+			assert!(!handle.is_null());
+			assert!(margen_rsp_skin_scale(handle) >= 1.0);
+
+			let mut positions: *const MargenVec3 = ptr::null();
+			let mut normals: *const MargenVec3 = ptr::null();
+			let mut vertex_count = 0usize;
+			let mut indices: *const u32 = ptr::null();
+			let mut index_count = 0usize;
+			let mut pieces: *const MargenRspSkinPiece = ptr::null();
+			let mut piece_count = 0usize;
+			assert_eq!(
+				margen_rsp_skin_mesh(
+					handle,
+					&mut positions,
+					&mut normals,
+					&mut vertex_count,
+					&mut indices,
+					&mut index_count,
+					&mut pieces,
+					&mut piece_count,
+				),
+				MARGEN_OK
+			);
+			assert!(vertex_count > 0 && !positions.is_null() && !normals.is_null());
+			assert_eq!(index_count % 3, 0);
+			for i in 0..index_count {
+				assert!((*indices.add(i) as usize) < vertex_count);
+			}
+			let mut covered = 0u32;
+			for i in 0..piece_count {
+				let piece = *pieces.add(i);
+				assert_eq!(piece.index_begin, covered);
+				assert!(piece.kind == MARGEN_RSP_PIECE_ROOM || piece.kind == MARGEN_RSP_PIECE_PATHWAY);
+				covered += piece.index_count;
+			}
+			assert_eq!(covered as usize, index_count);
+
+			let mut room_nodes: *const u32 = ptr::null();
+			let mut centers: *const MargenVec2 = ptr::null();
+			let mut radii: *const f32 = ptr::null();
+			let mut room_count = 0usize;
+			assert_eq!(
+				margen_rsp_skin_rooms(handle, &mut room_nodes, &mut centers, &mut radii, &mut room_count),
+				MARGEN_OK
+			);
+			let rooms = (0..piece_count)
+				.filter(|i| (*pieces.add(*i)).kind == MARGEN_RSP_PIECE_ROOM)
+				.count();
+			assert_eq!(room_count, rooms);
+			for i in 0..room_count {
+				assert!(*radii.add(i) > 0.0);
+			}
+			margen_rsp_skin_free(handle);
+
+			// Unusable config values fall back to the defaults.
+			let config = MargenRspSkinConfig {
+				pathway_width: 0.0,
+				gap: -1.0,
+				room_min_radius: f32::NAN,
+				room_preferred_radius: 0.0,
+				floor_thickness: 0.0,
+				angular_gap: 0.0,
+				target_sides: 0,
+			};
+			let mut defaults: *mut MargenRspSkin = ptr::null_mut();
+			assert_eq!(
+				margen_generate_rsp_skin(7, 2, 2.0 / 3.0, &config, &mut defaults),
+				MARGEN_OK,
+				"invalid values fall back to defaults"
+			);
+			margen_rsp_skin_free(defaults);
+			assert_eq!(
+				margen_generate_rsp_skin(7, 2, 2.0 / 3.0, ptr::null(), ptr::null_mut()),
+				MARGEN_ERR_INVALID_ARGUMENT
+			);
 		}
 	}
 }

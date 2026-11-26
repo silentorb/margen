@@ -287,6 +287,85 @@ MargenStatus margen_rsp_graph_geometry(
 	const MargenVec2 **out_cell_vertices,
 	size_t *out_cell_vertex_count);
 
+/* --- RSP skinning: floor slabs for rooms (nodes) and pathways (constraints) --- */
+
+typedef struct MargenRspSkin MargenRspSkin;
+
+/*
+ * Skinning parameters in layout units. Any value that is not finite and positive falls
+ * back to its default (pathway_width 24, gap 2.4, room radii 18 / 30, floor_thickness 6,
+ * angular_gap 2 degrees in radians); target_sides < 3 falls back to 6.
+ */
+typedef struct MargenRspSkinConfig {
+	float pathway_width;
+	float gap;
+	float room_min_radius;
+	float room_preferred_radius;
+	float floor_thickness;
+	float angular_gap;
+	int32_t target_sides;
+} MargenRspSkinConfig;
+
+enum {
+	MARGEN_RSP_PIECE_ROOM = 0,
+	MARGEN_RSP_PIECE_PATHWAY = 1
+};
+
+/*
+ * Triangle range of one floor piece: [index_begin, index_begin + index_count) in the
+ * index buffer. Rooms: id = node id. Pathways: id = constraint index, node = the room the
+ * half-pathway leaves (each pathway is two pieces joined at its door).
+ */
+typedef struct MargenRspSkinPiece {
+	uint32_t kind;
+	uint32_t id;
+	uint32_t node;
+	uint32_t index_begin;
+	uint32_t index_count;
+} MargenRspSkinPiece;
+
+/*
+ * Skeletal RSP (same graph and layout as margen_generate_rsp_skeletal) turned into
+ * floor slabs: a low-poly cylinder per node with one side facing each pathway, and a
+ * pathway of pathway_width per constraint. The layout is uniformly scaled until every
+ * footprint fits with margins, so footprints never overlap (see docs/rsp-skinning.md).
+ * config may be NULL. Returns MARGEN_ERR_GENERATION_FAILED (margen_last_error) when no
+ * fitting scale exists.
+ */
+MargenStatus margen_generate_rsp_skin(
+	int32_t seed,
+	int32_t subdivisions,
+	float loop_weight,
+	const MargenRspSkinConfig *config,
+	MargenRspSkin **out_handle);
+void margen_rsp_skin_free(MargenRspSkin *handle);
+
+/*
+ * Slab mesh in margen XYZ (Z up, floor tops at z = 0). Flat shaded: normals parallel to
+ * positions. Triangles are counter-clockwise seen from outside (right-handed outward).
+ * Pointers valid until margen_rsp_skin_free.
+ */
+MargenStatus margen_rsp_skin_mesh(
+	const MargenRspSkin *handle,
+	const MargenVec3 **out_positions,
+	const MargenVec3 **out_normals,
+	size_t *out_vertex_count,
+	const uint32_t **out_indices,
+	size_t *out_index_count,
+	const MargenRspSkinPiece **out_pieces,
+	size_t *out_piece_count);
+
+/* Room circles (margen XY, mesh space), sorted by node id. */
+MargenStatus margen_rsp_skin_rooms(
+	const MargenRspSkin *handle,
+	const uint32_t **out_node_ids,
+	const MargenVec2 **out_centers,
+	const float **out_radii,
+	size_t *out_room_count);
+
+/* Uniform scale applied to the layout (>= 1); 0 for a NULL handle. */
+float margen_rsp_skin_scale(const MargenRspSkin *handle);
+
 #ifdef __cplusplus
 }
 #endif

@@ -1,0 +1,14 @@
+[package]
+name = "margen_rsp_skinning"
+version = "0.1.0"
+edition = "2021"
+description = "RSP skinning: overlap-free floor slabs for rooms and pathways"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+margen_rsp = { path = "../margen_rsp" }
+mythic_math = { path = "../mythic_math" }
+
+[dev-dependencies]
+margen_rsp_generation = { path = "../margen_rsp_generation" }
+mythic_dice = { path = "../mythic_dice" }

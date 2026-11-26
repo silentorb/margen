@@ -12,5 +12,6 @@ members = [
     "crates/margen_generation_surfacing",
     "crates/margen_rsp",
     "crates/margen_rsp_generation",
+    "crates/margen_rsp_skinning",
     "crates/margen_ffi",
 ]

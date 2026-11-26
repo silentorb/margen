@@ -16,5 +16,6 @@ margen_generation_surfacing = { path = "../margen_generation_surfacing" }
 margen_generation_graphing = { path = "../margen_generation_graphing" }
 margen_rsp = { path = "../margen_rsp" }
 margen_rsp_generation = { path = "../margen_rsp_generation" }
+margen_rsp_skinning = { path = "../margen_rsp_skinning" }
 mythic_dice = { path = "../mythic_dice" }
 mythic_math = { path = "../mythic_math" }
